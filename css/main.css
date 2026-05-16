@@ -2770,6 +2770,46 @@ body.overlay-open {
     background-color: var(--color-border);
 }
 
+/* ----- Skice u Narudžba-detalju (7c-4) ----- */
+.skica-grid .skica-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.skica-cell .photo-thumb {
+    width: 100%;
+}
+
+.skica-cell .photo-thumb img {
+    background-color: #FFFFFF;
+}
+
+.skica-naziv {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.skica-datum {
+    font-size: 0.6875rem;
+    color: var(--color-text-muted);
+    line-height: 1.2;
+}
+
+.skica-edit-btn {
+    min-height: 36px;
+    padding: 4px 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
 .aufmass-tool-btn-danger:active {
     background-color: rgba(181, 58, 43, 0.1);
 }

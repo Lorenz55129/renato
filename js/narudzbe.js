@@ -37,6 +37,9 @@
     // Slušatelji koje treba očistiti kad se forma zatvori.
     let pendingKupacListener = null;
 
+    // Sprječava da click iza long-pressa otvori viewer.
+    let suppressNextClick = false;
+
     // ----- Pomoćne funkcije -----
     function escapeHtml(value) {
         if (value === null || value === undefined) return '';
@@ -398,8 +401,22 @@
                 <h4 class="detail-section-title">Skice <span class="detail-section-count">(${(n.aufmass_skice || []).length})</span></h4>
                 ${(n.aufmass_skice || []).length === 0
                     ? `<p class="placeholder-hint">Nema spremljenih skica.</p>`
-                    : ''}
-                <button type="button" class="btn btn-secondary btn-block" id="btn-aufmass">Otvori ploču za skiciranje</button>
+                    : `<div class="photo-grid skica-grid">
+                        ${(n.aufmass_skice || []).map(s => `
+                            <div class="skica-cell">
+                                <button type="button" class="photo-thumb skica-thumb" data-skica-id="${escapeHtml(s.id)}"
+                                        aria-label="Otvori skicu: ${escapeHtml(s.naziv || '')}">
+                                    <img src="${s.imageData}" alt="" loading="lazy">
+                                </button>
+                                <div class="skica-naziv">${escapeHtml(s.naziv || 'Bez naziva')}</div>
+                                <div class="skica-datum">${escapeHtml(formatSkicaDatum(s.datum))}</div>
+                                <button type="button" class="btn btn-ghost skica-edit-btn" data-skica-id="${escapeHtml(s.id)}">
+                                    ✏️ Uredi
+                                </button>
+                            </div>
+                        `).join('')}
+                       </div>`}
+                <button type="button" class="btn btn-secondary btn-block" id="btn-aufmass">Nova skica</button>
             </section>
 
             <div class="detail-actions">
@@ -439,11 +456,35 @@
         const photoInput = document.getElementById('photo-input');
         if (photoInput) photoInput.addEventListener('change', handlePhotoSelect);
 
-        // Photo thumbnails
-        container.querySelectorAll('.photo-thumb').forEach(btn => {
+        // Photo thumbnails (selektira samo prave fotografije, ne skice)
+        container.querySelectorAll('.photo-thumb[data-index]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const idx = parseInt(btn.getAttribute('data-index'), 10);
                 openPhotoViewer(idx);
+            });
+        });
+
+        // Skica thumbnails (tap = viewer, longpress = obriši)
+        container.querySelectorAll('.skica-thumb').forEach(btn => {
+            const skicaId = btn.getAttribute('data-skica-id');
+            btn.addEventListener('click', () => {
+                if (suppressNextClick) {
+                    suppressNextClick = false;
+                    return;
+                }
+                const skica = (n.aufmass_skice || []).find(s => s.id === skicaId);
+                if (skica) openSkicaViewer(skica);
+            });
+            attachLongpress(btn, () => handleDeleteSkica(n.id, skicaId));
+        });
+
+        // Skica edit buttons → otvori aufmaß s postojećom skicom
+        container.querySelectorAll('.skica-edit-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const skicaId = btn.getAttribute('data-skica-id');
+                if (window.App.Aufmass && typeof window.App.Aufmass.openForNarudzba === 'function') {
+                    window.App.Aufmass.openForNarudzba(n.id, skicaId);
+                }
             });
         });
     }
@@ -851,12 +892,15 @@
             } else {
                 closeForm();
                 closePhotoViewer();
+                closeSkicaViewer();
             }
         });
 
         document.addEventListener('keydown', (e) => {
             if (e.key !== 'Escape') return;
-            if (document.getElementById('photo-viewer-overlay')) {
+            if (document.getElementById('skica-viewer-overlay')) {
+                closeSkicaViewer();
+            } else if (document.getElementById('photo-viewer-overlay')) {
                 closePhotoViewer();
             } else if (document.getElementById('narudzba-form-overlay')) {
                 closeForm();
@@ -865,6 +909,86 @@
 
         // Ako se kupac obriše u modulu Kupci, prikaz "Nepoznat kupac" se sam riješi
         // pri sljedećem renderu - ne treba poseban listener.
+    }
+
+    // ----- Skice: format datuma, longpress, viewer, brisanje -----
+    function formatSkicaDatum(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '';
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        return `${dd}.${mm}.${d.getFullYear()}.`;
+    }
+
+    function attachLongpress(el, action, ms) {
+        const duration = typeof ms === 'number' ? ms : 600;
+        let timer = null;
+        function start() {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => {
+                suppressNextClick = true;
+                action();
+            }, duration);
+        }
+        function cancel() {
+            if (timer) clearTimeout(timer);
+            timer = null;
+        }
+        el.addEventListener('touchstart', start, { passive: true });
+        el.addEventListener('touchmove', cancel, { passive: true });
+        el.addEventListener('touchend', cancel);
+        el.addEventListener('touchcancel', cancel);
+        el.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            suppressNextClick = true;
+            action();
+        });
+    }
+
+    function handleDeleteSkica(narudzbaId, skicaId) {
+        if (!window.confirm('Sigurno obrisati ovu skicu?')) return;
+        const n = getById(narudzbaId);
+        if (!n) return;
+        const skice = (n.aufmass_skice || []).filter(s => s.id !== skicaId);
+        updateNarudzba(narudzbaId, { aufmass_skice: skice });
+        renderDetail();
+    }
+
+    function openSkicaViewer(skica) {
+        closeSkicaViewer();
+        const overlay = document.createElement('div');
+        overlay.className = 'photo-viewer';
+        overlay.id = 'skica-viewer-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', `Skica: ${skica.naziv || ''}`);
+        overlay.innerHTML = `
+            <button type="button" class="icon-btn photo-viewer-close" id="skica-viewer-close" aria-label="Zatvori">✕</button>
+            <img class="photo-viewer-image" src="${skica.imageData}" alt="${escapeHtml(skica.naziv || '')}">
+        `;
+        document.body.appendChild(overlay);
+        document.body.classList.add('overlay-open');
+
+        document.getElementById('skica-viewer-close').addEventListener('click', closeSkicaViewer);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeSkicaViewer();
+        });
+    }
+
+    function closeSkicaViewer() {
+        const ov = document.getElementById('skica-viewer-overlay');
+        if (ov) ov.remove();
+        if (!document.querySelector('.overlay') && !document.querySelector('.slide-panel') && !document.querySelector('.photo-viewer') && !document.querySelector('.gallery-viewer')) {
+            document.body.classList.remove('overlay-open');
+        }
+    }
+
+    // Javno: pozivaju ga drugi moduli (npr. aufmass nakon spremanja skice).
+    function refreshDetail(narudzbaId) {
+        if (state.view === 'detail' && state.selectedId === narudzbaId) {
+            renderDetail();
+        }
     }
 
     // Postavi detaljni prikaz (npr. iz drugog modula, prije Nav.show('narudzbe')).
@@ -887,6 +1011,7 @@
         getByKupacId,
         openForm,
         openDetail,
+        refreshDetail,
         addFoto,
         removeFoto,
         STATUSI,
