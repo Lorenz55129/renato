@@ -1424,6 +1424,650 @@ body.overlay-open {
     gap: 12px;
 }
 
+/* ============================================
+   Modul: Više (izbornik)
+   ============================================ */
+.menu-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0;
+    margin: 0;
+}
+
+.menu-item {
+    width: 100%;
+    background-color: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    min-height: var(--touch-target);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    box-shadow: var(--shadow-sm);
+    color: var(--color-text);
+    font-weight: 600;
+    transition: background-color 0.15s, transform 0.05s;
+}
+
+.menu-item:active {
+    background-color: var(--color-cream-dark);
+    transform: scale(0.99);
+}
+
+.menu-item-disabled {
+    color: var(--color-text-muted);
+    opacity: 0.7;
+    cursor: default;
+}
+
+.menu-item-disabled:active {
+    background-color: var(--color-white);
+    transform: none;
+}
+
+.menu-item-label {
+    flex: 1;
+    text-align: left;
+}
+
+.menu-item-arrow {
+    color: var(--color-text-muted);
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.menu-item-hint {
+    color: var(--color-text-muted);
+    font-size: 0.8125rem;
+    font-style: italic;
+}
+
+/* ============================================
+   Modul: Ponude
+   ============================================ */
+
+/* ----- Toolbar i filteri ----- */
+.ponude-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.filter-tabs-scroll {
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+}
+
+.filter-tabs-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.filter-tabs-scroll .filter-tab {
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    min-width: auto;
+}
+
+/* ----- Lista ponuda ----- */
+.ponuda-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0;
+    margin: 0;
+}
+
+.ponuda-card {
+    background-color: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    min-height: var(--touch-target);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow-sm);
+    transition: background-color 0.15s, transform 0.05s;
+    outline: none;
+}
+
+.ponuda-card:active {
+    background-color: var(--color-cream-dark);
+    transform: scale(0.99);
+}
+
+.ponuda-card:focus-visible {
+    box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.35);
+}
+
+.ponuda-card-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ponuda-card-broj {
+    font-weight: 700;
+    color: var(--color-brown);
+    font-size: 0.9375rem;
+    letter-spacing: 0.3px;
+}
+
+.ponuda-card-kupac {
+    color: var(--color-text);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ponuda-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+}
+
+.ponuda-card-date {
+    color: var(--color-text-muted);
+    font-size: 0.8125rem;
+}
+
+.ponuda-card-amount {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--color-brown);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ----- Status badges za ponude ----- */
+.status-nacrt { background-color: #8B7E68; color: #FFFFFF; }
+.status-poslano { background-color: #5A7A9A; color: #FFFFFF; }
+.status-prihvaceno { background-color: var(--color-success); color: #FFFFFF; }
+.status-odbijeno { background-color: var(--color-danger); color: #FFFFFF; }
+
+/* ----- Detaljni prikaz: traka, status akcije ----- */
+.ponude-detail-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.ponuda-status-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.ponuda-status-btn {
+    text-align: left;
+    justify-content: flex-start;
+}
+
+.ponuda-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+/* ----- Ponuda dokument (detalj + print) ----- */
+.ponuda-document {
+    background-color: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 20px 18px;
+    box-shadow: var(--shadow-sm);
+    color: var(--color-text);
+}
+
+.ponuda-doc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--color-brown);
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.ponuda-doc-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--color-brown);
+    letter-spacing: 1px;
+    margin: 0;
+}
+
+.ponuda-doc-broj {
+    font-size: 0.9375rem;
+    color: var(--color-text-muted);
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+.ponuda-doc-dates {
+    font-size: 0.875rem;
+    color: var(--color-text);
+    text-align: right;
+    line-height: 1.6;
+}
+
+.ponuda-doc-label {
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: 700;
+}
+
+.ponuda-doc-kupac {
+    padding: 12px;
+    background-color: var(--color-cream);
+    border-radius: var(--radius-sm);
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.ponuda-doc-kupac-name {
+    font-weight: 700;
+    font-size: 1.0625rem;
+    margin-top: 4px;
+}
+
+.ponuda-doc-narudzba {
+    margin-top: 6px;
+    font-style: italic;
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+}
+
+.ponuda-doc-napomena {
+    margin: 12px 0 16px;
+    padding: 10px 12px;
+    background-color: var(--color-cream);
+    border-radius: var(--radius-sm);
+    font-size: 0.9375rem;
+    white-space: pre-wrap;
+}
+
+.ponuda-doc-napomena-donja {
+    margin-top: 16px;
+    font-style: italic;
+}
+
+.ponuda-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 0.875rem;
+}
+
+.ponuda-table th,
+.ponuda-table td {
+    border: 1px solid var(--color-border);
+    padding: 8px 8px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.ponuda-table th {
+    background-color: var(--color-cream-dark);
+    color: var(--color-brown);
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.ponuda-table .col-num { width: 8%; text-align: right; }
+.ponuda-table .col-opis { width: 32%; }
+.ponuda-table .col-kol { width: 10%; text-align: right; }
+.ponuda-table .col-jed { width: 8%; }
+.ponuda-table .col-cijena { width: 14%; text-align: right; }
+.ponuda-table .col-popust { width: 10%; text-align: right; }
+.ponuda-table .col-ukupno { width: 18%; text-align: right; font-weight: 700; }
+
+.ponuda-table-empty {
+    text-align: center;
+    color: var(--color-text-muted);
+    font-style: italic;
+    padding: 16px !important;
+}
+
+.ponuda-doc-totals {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border);
+}
+
+.ponuda-doc-total-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    min-width: 200px;
+    font-size: 0.9375rem;
+}
+
+.ponuda-doc-total-brutto {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: var(--color-brown);
+    border-top: 2px solid var(--color-brown);
+    margin-top: 4px;
+    padding-top: 6px;
+}
+
+/* ----- Forma: read-only polje ----- */
+.form-readonly {
+    min-height: var(--touch-target);
+    padding: 12px 14px;
+    background-color: var(--color-cream-dark);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    color: var(--color-brown);
+    letter-spacing: 0.3px;
+}
+
+/* ----- Forma: pozicije ----- */
+.poz-section {
+    background-color: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.poz-section-header {
+    margin-bottom: 8px;
+}
+
+.poz-section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-brown);
+}
+
+.poz-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.poz-empty {
+    padding: 16px;
+    text-align: center;
+    color: var(--color-text-muted);
+    font-style: italic;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-sm);
+}
+
+.poz-row {
+    background-color: var(--color-cream);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.poz-row-expanded {
+    background-color: var(--color-white);
+    border-color: var(--color-gold);
+    box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.18);
+}
+
+.poz-summary {
+    width: 100%;
+    min-height: var(--touch-target);
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    text-align: left;
+    color: var(--color-text);
+    font-weight: 600;
+    transition: background-color 0.15s;
+}
+
+.poz-summary:active {
+    background-color: var(--color-cream-dark);
+}
+
+.poz-summary-num {
+    color: var(--color-brown);
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.poz-summary-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text);
+}
+
+.poz-summary-total {
+    flex-shrink: 0;
+    color: var(--color-brown);
+    font-weight: 700;
+}
+
+.poz-editor {
+    padding: 0 12px 12px;
+    border-top: 1px dashed var(--color-border);
+    padding-top: 12px;
+}
+
+.poz-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.poz-actions {
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+    margin-top: 4px;
+}
+
+.poz-move {
+    flex: 0 0 auto;
+    min-width: var(--touch-target);
+    padding: 12px 14px;
+    font-size: 1.125rem;
+}
+
+.poz-move[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.poz-delete {
+    flex: 1;
+}
+
+.add-poz-btn {
+    margin-top: 4px;
+}
+
+/* ----- Forma: totals blok ----- */
+.totals-block {
+    background-color: var(--color-cream);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.totals-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.9375rem;
+}
+
+.totals-brutto {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: var(--color-brown);
+    border-top: 2px solid var(--color-brown);
+    margin-top: 4px;
+    padding-top: 8px;
+}
+
+/* ============================================
+   PRINT (PDF izvoz ponude)
+   ============================================ */
+@media print {
+    .app-header,
+    .bottom-nav,
+    .module-header,
+    .ponude-toolbar,
+    .ponude-detail-bar,
+    .ponuda-status-actions,
+    .ponuda-actions,
+    .overlay,
+    .slide-panel,
+    .slide-panel-backdrop,
+    .photo-viewer,
+    .no-print {
+        display: none !important;
+    }
+
+    html, body {
+        background: #FFFFFF !important;
+        color: #000;
+        padding: 0 !important;
+        margin: 0 !important;
+        font-size: 11pt;
+        font-family: Arial, Helvetica, sans-serif;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .app-main {
+        padding: 0 !important;
+        max-width: none !important;
+        margin: 0 !important;
+    }
+
+    .module.hidden { display: none !important; }
+    .module:not(.hidden) { display: block !important; animation: none; }
+    .module-content { padding: 0 !important; gap: 0 !important; }
+
+    .ponuda-document {
+        background: #FFFFFF !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100%;
+        color: #000;
+    }
+
+    .ponuda-doc-header {
+        border-bottom: 2pt solid #000 !important;
+        padding-bottom: 8pt;
+        margin-bottom: 14pt;
+    }
+
+    .ponuda-doc-title {
+        font-size: 20pt;
+        color: #000 !important;
+        letter-spacing: 1pt;
+    }
+
+    .ponuda-doc-broj {
+        color: #333 !important;
+        font-size: 11pt;
+    }
+
+    .ponuda-doc-dates {
+        font-size: 10pt;
+    }
+
+    .ponuda-doc-label {
+        color: #555 !important;
+    }
+
+    .ponuda-doc-kupac,
+    .ponuda-doc-napomena {
+        background: #F5F5F5 !important;
+        border-radius: 0;
+        padding: 8pt 10pt !important;
+        margin-bottom: 12pt;
+        page-break-inside: avoid;
+    }
+
+    .ponuda-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 10pt;
+        margin: 10pt 0;
+    }
+
+    .ponuda-table th,
+    .ponuda-table td {
+        border: 0.5pt solid #333 !important;
+        padding: 4pt 6pt !important;
+    }
+
+    .ponuda-table th {
+        background: #E8E8E8 !important;
+        color: #000 !important;
+    }
+
+    .ponuda-table tr {
+        page-break-inside: avoid;
+    }
+
+    .ponuda-doc-totals {
+        margin-top: 12pt;
+        padding-top: 8pt;
+        border-top: 0.5pt solid #333 !important;
+        page-break-inside: avoid;
+    }
+
+    .ponuda-doc-total-brutto {
+        color: #000 !important;
+        border-top: 2pt solid #000 !important;
+        font-size: 13pt;
+    }
+
+    @page {
+        size: A4;
+        margin: 1.2cm;
+    }
+}
+
 /* ----- Veći ekrani (tablet i šire) ----- */
 @media (min-width: 768px) {
     .app-main {

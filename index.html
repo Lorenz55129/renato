@@ -62,10 +62,31 @@
             <div class="module-header">
                 <h2>Više</h2>
             </div>
-            <div class="module-content">
-                <div class="placeholder-card">
-                    <p class="placeholder-hint">Ponude, Galerija i ostale opcije.</p>
-                </div>
+            <div class="module-content" id="vise-content">
+                <ul class="menu-list">
+                    <li>
+                        <button type="button" class="menu-item" data-target="ponude">
+                            <span class="menu-item-label">Ponude</span>
+                            <span class="menu-item-arrow" aria-hidden="true">›</span>
+                        </button>
+                    </li>
+                    <li>
+                        <div class="menu-item menu-item-disabled" aria-disabled="true">
+                            <span class="menu-item-label">Galerija</span>
+                            <span class="menu-item-hint">U izradi</span>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Ponude modul (dostupan iz "Više") -->
+        <section class="module hidden" id="module-ponude" data-module="ponude">
+            <div class="module-header">
+                <h2>Ponude</h2>
+            </div>
+            <div class="module-content" id="ponude-content">
+                <!-- Sadržaj se generira iz js/ponude.js -->
             </div>
         </section>
     </main>
@@ -123,5 +144,6 @@
     <script src="js/kupci.js"></script>
     <script src="js/narudzbe.js"></script>
     <script src="js/kalendar.js"></script>
+    <script src="js/ponude.js"></script>
 </body>
 </html>
