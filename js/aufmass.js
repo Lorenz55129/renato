@@ -717,8 +717,10 @@
         }
 
         // Spremi direktno u narudžbu kroz Storage.
+        console.log('commitSave start, narudzbaId:', state.narudzbaId);
         const sve = window.App.Storage.load('narudzbe', []);
         const idx = sve.findIndex(n => n.id === narudzbaId);
+        console.log('narudzbe geladen:', sve.length, 'gefunden:', idx);
         if (idx === -1) {
             closeSavePopup();
             return;
@@ -752,7 +754,9 @@
             });
         }
 
+        console.log('aufmass_skice nach save:', sve[idx].aufmass_skice.length);
         window.App.Storage.save('narudzbe', sve);
+        console.log('Storage.save fertig');
 
         // Označi kao čisto i zatvori overlay bez confirm-a.
         state.isDirty = false;
