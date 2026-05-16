@@ -268,9 +268,11 @@
             </div>
         `;
 
-        document.getElementById('btn-back').addEventListener('click', showList);
-        document.getElementById('btn-uredi').addEventListener('click', () => openForm(k.id));
-        document.getElementById('btn-obrisi').addEventListener('click', () => handleDelete(k));
+        // Scope-aj kroz container kako getElementById ne bi pogodio
+        // istoimene gumbe iz drugih (skrivenih) modula u DOM-u.
+        container.querySelector('#btn-back').addEventListener('click', showList);
+        container.querySelector('#btn-uredi').addEventListener('click', () => openForm(k.id));
+        container.querySelector('#btn-obrisi').addEventListener('click', () => handleDelete(k));
     }
 
     function handleDelete(k) {

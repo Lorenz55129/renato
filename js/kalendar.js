@@ -498,9 +498,11 @@
             </div>
         `;
 
-        document.getElementById('panel-handle').addEventListener('click', closePanel);
-        document.getElementById('panel-close').addEventListener('click', closePanel);
-        document.getElementById('panel-add').addEventListener('click', () => {
+        // Scope-aj kroz panel - panel je u body-ju, izbjegavamo kolizije s
+        // gumbima iz drugih modula koji koriste iste id-ove.
+        panel.querySelector('#panel-handle').addEventListener('click', closePanel);
+        panel.querySelector('#panel-close').addEventListener('click', closePanel);
+        panel.querySelector('#panel-add').addEventListener('click', () => {
             openForm(null, { datum });
         });
 
@@ -580,12 +582,14 @@
             </div>
         `;
 
-        document.getElementById('panel-handle').addEventListener('click', closePanel);
-        document.getElementById('panel-close').addEventListener('click', closePanel);
-        document.getElementById('btn-uredi').addEventListener('click', () => openForm(t.id));
-        document.getElementById('btn-obrisi').addEventListener('click', () => handleDelete(t));
+        // Scope-aj kroz panel - btn-uredi/btn-obrisi postoje i u kupci/
+        // narudzbe/ponude/edukacije modulima koji su istovremeno u DOM-u.
+        panel.querySelector('#panel-handle').addEventListener('click', closePanel);
+        panel.querySelector('#panel-close').addEventListener('click', closePanel);
+        panel.querySelector('#btn-uredi').addEventListener('click', () => openForm(t.id));
+        panel.querySelector('#btn-obrisi').addEventListener('click', () => handleDelete(t));
 
-        const btnOtvori = document.getElementById('btn-otvori-narudzba');
+        const btnOtvori = panel.querySelector('#btn-otvori-narudzba');
         if (btnOtvori) {
             btnOtvori.addEventListener('click', () => {
                 if (window.App.Narudzbe && window.App.Narudzbe.openDetail(t.narudzba_id)) {

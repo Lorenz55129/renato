@@ -454,14 +454,16 @@
         `;
 
         // ----- Bindings -----
-        document.getElementById('btn-back').addEventListener('click', showList);
-        document.getElementById('btn-uredi').addEventListener('click', () => openForm(n.id));
-        document.getElementById('btn-obrisi').addEventListener('click', () => handleDelete(n));
+        // Scope-aj kroz container - getElementById može pogoditi istoimene
+        // gumbe iz drugih (skrivenih) modula u DOM-u.
+        container.querySelector('#btn-back').addEventListener('click', showList);
+        container.querySelector('#btn-uredi').addEventListener('click', () => openForm(n.id));
+        container.querySelector('#btn-obrisi').addEventListener('click', () => handleDelete(n));
 
-        const btnStatus = document.getElementById('btn-status');
+        const btnStatus = container.querySelector('#btn-status');
         if (btnStatus) btnStatus.addEventListener('click', () => handleAdvanceStatus(n));
 
-        const btnAufmass = document.getElementById('btn-aufmass');
+        const btnAufmass = container.querySelector('#btn-aufmass');
         if (btnAufmass) {
             btnAufmass.addEventListener('click', () => {
                 if (window.App.Aufmass && typeof window.App.Aufmass.openForNarudzba === 'function') {
@@ -476,7 +478,7 @@
         });
 
         // Photo input
-        const photoInput = document.getElementById('photo-input');
+        const photoInput = container.querySelector('#photo-input');
         if (photoInput) photoInput.addEventListener('change', handlePhotoSelect);
 
         // Photo thumbnails (selektira samo prave fotografije, ne skice)
@@ -530,7 +532,7 @@
         });
 
         // Nova ponuda za ovu narudžbu (otvara Ponude formu s pretpunjenim kupcem/narudžbom)
-        const btnNovaPonuda = document.getElementById('btn-nova-ponuda-za-narudzbu');
+        const btnNovaPonuda = container.querySelector('#btn-nova-ponuda-za-narudzbu');
         if (btnNovaPonuda) {
             btnNovaPonuda.addEventListener('click', () => {
                 if (window.App.Ponude && typeof window.App.Ponude.openForm === 'function') {

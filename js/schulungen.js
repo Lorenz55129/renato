@@ -278,11 +278,13 @@
             </div>
         `;
 
-        document.getElementById('btn-back-list').addEventListener('click', showList);
-        document.getElementById('btn-uredi').addEventListener('click', () => openForm(e.id));
-        document.getElementById('btn-obrisi').addEventListener('click', () => handleDelete(e));
+        // Scope-aj kroz container - drugi moduli (ponude, narudzbe, ...)
+        // koriste iste id-ove i mogu biti istovremeno u DOM-u (skriveni).
+        container.querySelector('#btn-back-list').addEventListener('click', showList);
+        container.querySelector('#btn-uredi').addEventListener('click', () => openForm(e.id));
+        container.querySelector('#btn-obrisi').addEventListener('click', () => handleDelete(e));
 
-        const btnPdf = document.getElementById('btn-otvori-pdf');
+        const btnPdf = container.querySelector('#btn-otvori-pdf');
         if (btnPdf) {
             btnPdf.addEventListener('click', () => window.open(e.url, '_blank', 'noopener'));
         }
