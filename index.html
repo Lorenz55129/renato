@@ -95,6 +95,12 @@
                             <span class="menu-item-arrow" aria-hidden="true">›</span>
                         </button>
                     </li>
+                    <li>
+                        <button type="button" class="menu-item" data-target="edukacije">
+                            <span class="menu-item-label">Edukacije</span>
+                            <span class="menu-item-arrow" aria-hidden="true">›</span>
+                        </button>
+                    </li>
                 </ul>
             </div>
         </section>
@@ -116,6 +122,16 @@
             </div>
             <div class="module-content" id="galerija-content">
                 <!-- Sadržaj se generira iz js/galerija.js -->
+            </div>
+        </section>
+
+        <!-- Edukacije modul (dostupan iz "Više") -->
+        <section class="module hidden" id="module-edukacije" data-module="edukacije">
+            <div class="module-header">
+                <h2>Edukacije</h2>
+            </div>
+            <div class="module-content" id="edukacije-content">
+                <!-- Sadržaj se generira iz js/schulungen.js -->
             </div>
         </section>
     </main>
@@ -176,5 +192,6 @@
     <script src="js/ponude.js"></script>
     <script src="js/galerija.js"></script>
     <script src="js/aufmass.js"></script>
+    <script src="js/schulungen.js"></script>
 </body>
 </html>
