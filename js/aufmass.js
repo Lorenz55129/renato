@@ -700,7 +700,8 @@
         const narudzbaId = state.narudzbaId;
         const editingId = state.editingSkicaId;
 
-        // Stopi pozadinu i crtež u jednu PNG sliku (fizička veličina canvasa).
+        // Stopi pozadinu i crtež u jednu sliku, skaliranu (max 800px) i JPEG-kompresiranu
+        // kako bi se izbjegla localStorage quota.
         let imageData;
         try {
             const tempCanvas = document.createElement('canvas');
@@ -709,7 +710,17 @@
             const tempCtx = tempCanvas.getContext('2d');
             tempCtx.drawImage(bgCanvas, 0, 0);
             tempCtx.drawImage(drawCanvas, 0, 0);
-            imageData = tempCanvas.toDataURL('image/png');
+
+            const MAX = 800;
+            const scale = Math.min(MAX / tempCanvas.width, MAX / tempCanvas.height, 1);
+            const outW = Math.round(tempCanvas.width * scale);
+            const outH = Math.round(tempCanvas.height * scale);
+            const outCanvas = document.createElement('canvas');
+            outCanvas.width = outW;
+            outCanvas.height = outH;
+            const outCtx = outCanvas.getContext('2d');
+            outCtx.drawImage(tempCanvas, 0, 0, outW, outH);
+            imageData = outCanvas.toDataURL('image/jpeg', 0.7);
         } catch (err) {
             console.error('Aufmass: spajanje slojeva nije uspjelo:', err);
             closeSavePopup();
@@ -755,6 +766,15 @@
         }
 
         console.log('aufmass_skice nach save:', sve[idx].aufmass_skice.length);
+
+        // Upozorenje ako je localStorage skoro pun (> 4MB)
+        try {
+            const used = JSON.stringify(localStorage).length;
+            if (used > 4 * 1024 * 1024) {
+                alert('Upozorenje: Memorija aplikacije je skoro puna. Preporučujemo brisanje starih skica.');
+            }
+        } catch (e) {}
+
         window.App.Storage.save('narudzbe', sve);
         console.log('Storage.save fertig');
 
