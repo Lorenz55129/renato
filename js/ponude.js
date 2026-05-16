@@ -19,7 +19,7 @@
     };
 
     const JEDINICE = ['kom', 'm²', 'm', 'h'];
-    const PDV_OPCIJE = [0, 13, 25];
+    const PDV_OPCIJE = [0, 17];
 
     const DEFAULT_NAPOMENA_GORNJA = 'Poštovani, u nastavku vam dostavljamo ponudu za radove:';
     const DEFAULT_NAPOMENA_DONJA = 'Rok plaćanja: 15 dana. Ponuda vrijedi 30 dana.';
@@ -77,7 +77,7 @@
         return v.toLocaleString('hr-HR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
-        }) + ' €';
+        }) + ' KM';
     }
 
     function formatBroj(v) {
@@ -150,7 +150,7 @@
             napomena_gornja: (data.napomena_gornja || '').trim(),
             pozicije: (data.pozicije || []).map(cleanPozicija),
             napomena_donja: (data.napomena_donja || '').trim(),
-            pdv_posto: data.pdv_posto != null ? parseNum(data.pdv_posto) : 25
+            pdv_posto: data.pdv_posto != null ? parseNum(data.pdv_posto) : 17
         };
         list.push(novi);
         saveAll(list);
@@ -485,7 +485,7 @@
             datum_valjanosti: p.datum_valjanosti || plusDaysISO(30),
             napomena_gornja: p.napomena_gornja || (isEdit ? '' : DEFAULT_NAPOMENA_GORNJA),
             napomena_donja: p.napomena_donja || (isEdit ? '' : DEFAULT_NAPOMENA_DONJA),
-            pdv_posto: p.pdv_posto != null ? p.pdv_posto : 25,
+            pdv_posto: p.pdv_posto != null ? p.pdv_posto : 17,
             pozicije: (p.pozicije || []).map(x => makePozicija(x)),
             expandedPozicijaId: null,
             previewBroj: isEdit ? (p.broj || '') : nextBroj()
@@ -558,15 +558,15 @@
                 <section class="totals-block">
                     <div class="totals-row">
                         <span>Netto:</span>
-                        <span id="totals-netto">0,00 €</span>
+                        <span id="totals-netto">0,00 KM</span>
                     </div>
                     <div class="totals-row">
                         <span id="totals-pdv-label">PDV (${escapeHtml(formState.pdv_posto)}%):</span>
-                        <span id="totals-pdv">0,00 €</span>
+                        <span id="totals-pdv">0,00 KM</span>
                     </div>
                     <div class="totals-row totals-brutto">
                         <span>Ukupno:</span>
-                        <span id="totals-brutto">0,00 €</span>
+                        <span id="totals-brutto">0,00 KM</span>
                     </div>
                 </section>
 
@@ -805,7 +805,7 @@
                         </div>
                         <div class="poz-grid-2">
                             <div class="form-group">
-                                <label class="form-label">Cijena (€)</label>
+                                <label class="form-label">Cijena (KM)</label>
                                 <input class="form-input" data-field="cijena_jed" type="number"
                                        inputmode="decimal" step="0.01" min="0"
                                        value="${escapeHtml(p.cijena_jed)}">
