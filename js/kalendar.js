@@ -90,6 +90,16 @@
         return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}.`;
     }
 
+    // datum_unosa može doći u dva formata: YYYY-MM-DD (stari termini) ili
+    // pun ISO timestamp (npr. iz auto-kreiranog isporuka termina). Native Date
+    // parser pokriva oba.
+    function formatDatumUnosa(value) {
+        if (!value) return '—';
+        const d = new Date(value);
+        if (isNaN(d.getTime())) return '—';
+        return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}.`;
+    }
+
     function formatDateShort(iso) {
         if (!iso) return '';
         const d = parseISO(iso);
@@ -552,7 +562,7 @@
                     </div>
                     <div class="detail-row">
                         <div class="detail-label">Datum unosa</div>
-                        <div class="detail-value">${escapeHtml(formatDateLong(t.datum_unosa))}</div>
+                        <div class="detail-value">${escapeHtml(formatDatumUnosa(t.datum_unosa))}</div>
                     </div>
                 </div>
 
