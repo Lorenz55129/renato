@@ -2719,6 +2719,57 @@ body.overlay-open {
     background-color: var(--color-cream-dark);
 }
 
+/* ----- Aufmaß 7c-3: save popup ----- */
+.aufmass-save-popup {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 280px;
+    max-width: calc(100% - 24px);
+    padding: 16px;
+    gap: 10px;
+}
+
+.aufmass-save-popup .aufmass-text-input {
+    width: 100%;
+}
+
+.aufmass-save-label {
+    font-weight: 700;
+    color: var(--color-brown);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.aufmass-save-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.aufmass-save-ok {
+    flex: 1;
+}
+
+.aufmass-save-cancel {
+    flex: 1;
+    min-height: 40px;
+    padding: 6px 14px;
+    background-color: var(--color-cream-dark);
+    color: var(--color-text);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.9375rem;
+    transition: background-color 0.15s;
+}
+
+.aufmass-save-cancel:active {
+    background-color: var(--color-border);
+}
+
 .aufmass-tool-btn-danger:active {
     background-color: rgba(181, 58, 43, 0.1);
 }

@@ -40,6 +40,8 @@
         lineBaseSnapshot: null,             // 7c-1: ImageData prije linije (za live preview)
         textTapX: 0,                        // 7c-2: pozicija dodira za tekst
         textTapY: 0,
+        editingSkicaId: null,               // 7c-3: id postojeće skice u edit modu
+        isDirty: false,                     // 7c-3: postoji li nespremljena promjena
         undoStack: []                       // dataURL-ovi nakon svakog poteza, max UNDO_MAX
     };
 
@@ -64,11 +66,11 @@
     }
 
     function hasUnsavedDrawing() {
-        return state.undoStack.length > 0;
+        return state.isDirty;
     }
 
     // ----- Otvaranje / zatvaranje -----
-    function openForNarudzba(narudzbaId) {
+    function openForNarudzba(narudzbaId, skicaId) {
         if (state.open) return;
         const n = window.App.Narudzbe ? window.App.Narudzbe.getById(narudzbaId) : null;
         if (!n) return;
@@ -82,6 +84,8 @@
         state.strokeSize = DEFAULT_STROKE_SIZE;
         state.isDrawing = false;
         state.lineBaseSnapshot = null;
+        state.editingSkicaId = skicaId || null;
+        state.isDirty = false;
         state.undoStack = [];
 
         buildOverlay();
@@ -93,6 +97,25 @@
         requestAnimationFrame(() => {
             setupCanvases();
             redrawBg();
+
+            // 7c-3: edit mod - učitaj postojeću skicu u drawCanvas i inicijaliziraj undo stack.
+            if (state.editingSkicaId) {
+                const skica = (n.aufmass_skice || []).find(s => s.id === state.editingSkicaId);
+                if (skica && skica.imageData) {
+                    const img = new Image();
+                    img.onload = () => {
+                        if (!drawCtx) return;
+                        drawCtx.drawImage(img, 0, 0, drawCanvas.clientWidth, drawCanvas.clientHeight);
+                        pushUndoSnapshot();
+                        updateSpremiButton();
+                    };
+                    img.src = skica.imageData;
+                } else {
+                    // Edit traženo, ali skica ne postoji - tretiraj kao nov
+                    state.editingSkicaId = null;
+                }
+                updateSpremiButton();
+            }
         });
     }
 
@@ -106,6 +129,8 @@
         state.bgImage = null;
         state.isDrawing = false;
         state.lineBaseSnapshot = null;
+        state.editingSkicaId = null;
+        state.isDirty = false;
         state.undoStack = [];
         bgCanvas = drawCanvas = bgCtx = drawCtx = null;
 
@@ -369,6 +394,7 @@
             drawCtx.clearRect(0, 0, drawCanvas.clientWidth, drawCanvas.clientHeight);
         }
         state.undoStack = [];
+        state.isDirty = false;
         updateUndoButton();
         updateSpremiButton();
     }
@@ -546,6 +572,7 @@
         // Uvijek vrati composite na default - kritično nakon radirke.
         if (drawCtx) drawCtx.globalCompositeOperation = 'source-over';
         pushUndoSnapshot();
+        state.isDirty = true;
         updateSpremiButton();
     }
 
@@ -595,8 +622,146 @@
     }
 
     function handleSave() {
-        // 7c: spremanje u narudžbu. Za sada placeholder - tipka samo
-        // signalizira da postoji crtež za spremiti.
+        if (state.isDirty || state.editingSkicaId) {
+            openSavePopup();
+        }
+    }
+
+    function formatTodayDDMMYYYY() {
+        const d = new Date();
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        return `${dd}.${mm}.${d.getFullYear()}`;
+    }
+
+    function openSavePopup() {
+        closeSavePopup();
+        const wrap = document.getElementById('aufmass-canvas-wrap');
+        if (!wrap) return;
+
+        // Default naziv: postojeći ako edit, inače "Skica DD.MM.YYYY"
+        let defaultNaziv = '';
+        if (state.editingSkicaId && window.App.Narudzbe) {
+            const n = window.App.Narudzbe.getById(state.narudzbaId);
+            const s = n && (n.aufmass_skice || []).find(x => x.id === state.editingSkicaId);
+            if (s && s.naziv) defaultNaziv = s.naziv;
+        }
+        if (!defaultNaziv) defaultNaziv = 'Skica ' + formatTodayDDMMYYYY();
+
+        const popup = document.createElement('div');
+        popup.className = 'aufmass-text-popup aufmass-save-popup';
+        popup.id = 'aufmass-save-popup';
+        popup.setAttribute('role', 'dialog');
+        popup.setAttribute('aria-modal', 'true');
+        popup.setAttribute('aria-label', 'Spremi skicu');
+        popup.innerHTML = `
+            <label class="aufmass-save-label" for="aufmass-save-input">Naziv skice:</label>
+            <input type="text" class="aufmass-text-input aufmass-save-input" id="aufmass-save-input"
+                   value="${escapeHtml(defaultNaziv)}" autocomplete="off" autocapitalize="sentences">
+            <div class="aufmass-save-actions">
+                <button type="button" class="aufmass-text-ok aufmass-save-ok" id="aufmass-save-ok">Spremi</button>
+                <button type="button" class="aufmass-save-cancel" id="aufmass-save-cancel">Odustani</button>
+            </div>
+        `;
+        wrap.appendChild(popup);
+
+        const input = document.getElementById('aufmass-save-input');
+        setTimeout(() => {
+            if (!input) return;
+            input.focus();
+            input.select();
+        }, 30);
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                commitSave();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                closeSavePopup();
+            }
+        });
+
+        document.getElementById('aufmass-save-ok').addEventListener('click', commitSave);
+        document.getElementById('aufmass-save-cancel').addEventListener('click', closeSavePopup);
+    }
+
+    function closeSavePopup() {
+        const p = document.getElementById('aufmass-save-popup');
+        if (p) p.remove();
+    }
+
+    function commitSave() {
+        const input = document.getElementById('aufmass-save-input');
+        if (!input || !bgCanvas || !drawCanvas) { closeSavePopup(); return; }
+
+        const naziv = (input.value || '').trim() || 'Skica';
+        const narudzbaId = state.narudzbaId;
+        const editingId = state.editingSkicaId;
+
+        // Stopi pozadinu i crtež u jednu PNG sliku (fizička veličina canvasa).
+        let imageData;
+        try {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = bgCanvas.width;
+            tempCanvas.height = bgCanvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(bgCanvas, 0, 0);
+            tempCtx.drawImage(drawCanvas, 0, 0);
+            imageData = tempCanvas.toDataURL('image/png');
+        } catch (err) {
+            console.error('Aufmass: spajanje slojeva nije uspjelo:', err);
+            closeSavePopup();
+            return;
+        }
+
+        // Spremi direktno u narudžbu kroz Storage.
+        const sve = window.App.Storage.load('narudzbe', []);
+        const idx = sve.findIndex(n => n.id === narudzbaId);
+        if (idx === -1) {
+            closeSavePopup();
+            return;
+        }
+        if (!Array.isArray(sve[idx].aufmass_skice)) {
+            sve[idx].aufmass_skice = [];
+        }
+
+        if (editingId) {
+            const sIdx = sve[idx].aufmass_skice.findIndex(s => s.id === editingId);
+            if (sIdx !== -1) {
+                sve[idx].aufmass_skice[sIdx] = Object.assign({}, sve[idx].aufmass_skice[sIdx], {
+                    naziv,
+                    imageData,
+                    datum: new Date().toISOString()
+                });
+            } else {
+                sve[idx].aufmass_skice.push({
+                    id: window.App.Storage.generateId(),
+                    naziv,
+                    imageData,
+                    datum: new Date().toISOString()
+                });
+            }
+        } else {
+            sve[idx].aufmass_skice.push({
+                id: window.App.Storage.generateId(),
+                naziv,
+                imageData,
+                datum: new Date().toISOString()
+            });
+        }
+
+        window.App.Storage.save('narudzbe', sve);
+
+        // Označi kao čisto i zatvori overlay bez confirm-a.
+        state.isDirty = false;
+        closeSavePopup();
+        close();
+
+        if (window.App.Narudzbe && typeof window.App.Narudzbe.refreshDetail === 'function') {
+            window.App.Narudzbe.refreshDetail(narudzbaId);
+        }
     }
 
     function updateUndoButton() {
@@ -607,9 +772,11 @@
     function updateSpremiButton() {
         const btn = document.getElementById('aufmass-save');
         if (!btn) return;
-        const has = hasUnsavedDrawing();
-        btn.disabled = !has;
-        btn.textContent = has ? 'Spremi ✓' : 'Spremi';
+        // U edit modu uvijek se može spremiti (npr. samo preimenovati);
+        // u novom modu tek nakon prvog poteza.
+        const canSave = state.isDirty || !!state.editingSkicaId;
+        btn.disabled = !canSave;
+        btn.textContent = state.isDirty ? 'Spremi ✓' : 'Spremi';
     }
 
     // ----- Tekst popup (7c-2) -----
@@ -676,6 +843,7 @@
         if (text && text.trim()) {
             drawText(text, state.textTapX, state.textTapY);
             pushUndoSnapshot();
+            state.isDirty = true;
             updateSpremiButton();
         }
         closeTextPopup();
@@ -700,6 +868,10 @@
     function init() {
         document.addEventListener('keydown', (e) => {
             if (e.key !== 'Escape') return;
+            if (document.getElementById('aufmass-save-popup')) {
+                closeSavePopup();
+                return;
+            }
             if (document.getElementById('aufmass-text-popup')) {
                 closeTextPopup();
                 return;
