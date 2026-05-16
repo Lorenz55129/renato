@@ -91,8 +91,11 @@
         saveAll(list);
     }
 
-    // Broj narudžbi - bit će implementirano u modulu Narudžbe.
-    function countNarudzbe(/* kupacId */) {
+    // Broj narudžbi za zadanog kupca - koristi modul Narudžbe ako je učitan.
+    function countNarudzbe(kupacId) {
+        if (window.App && window.App.Narudzbe && typeof window.App.Narudzbe.getByKupacId === 'function') {
+            return window.App.Narudzbe.getByKupacId(kupacId).length;
+        }
         return 0;
     }
 
@@ -377,13 +380,22 @@
         }
         if (errIme) errIme.hidden = true;
 
+        let saved;
         if (editId) {
-            updateKupac(editId, data);
+            saved = updateKupac(editId, data);
+            document.dispatchEvent(new CustomEvent('kupac:updated', { detail: { kupac: saved } }));
         } else {
-            createKupac(data);
+            saved = createKupac(data);
+            document.dispatchEvent(new CustomEvent('kupac:created', { detail: { kupac: saved } }));
         }
 
         closeForm();
+
+        // Ako trenutno nismo na modulu kupci, ne diraj prikaz - drugi modul (npr. narudžbe)
+        // je tražio formu pa će sam osvježiti svoj prikaz.
+        if (window.App.Nav && window.App.Nav.currentModule !== 'kupci') {
+            return;
+        }
 
         // Ako smo uređivali iz detalja, ostani u detaljima; inače idi na listu.
         if (editId && state.view === 'detail' && state.selectedId === editId) {
@@ -396,7 +408,10 @@
     function closeForm() {
         const ov = document.getElementById('kupac-form-overlay');
         if (ov) ov.remove();
-        document.body.classList.remove('overlay-open');
+        // Otključaj scroll samo ako više nema otvorenog overlaya (npr. narudžbe).
+        if (!document.querySelector('.overlay')) {
+            document.body.classList.remove('overlay-open');
+        }
     }
 
     // ----- Inicijalizacija -----
@@ -436,7 +451,8 @@
         init,
         getAll,
         getById,
-        countNarudzbe
+        countNarudzbe,
+        openForm   // koristi drugi moduli (npr. narudžbe za brzo dodavanje kupca)
     };
 
     if (document.readyState === 'loading') {
