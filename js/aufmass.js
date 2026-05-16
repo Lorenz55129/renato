@@ -34,6 +34,9 @@
         isDrawing: false,
         lastX: 0,
         lastY: 0,
+        lineStartX: 0,                      // 7c-1: početna točka linije
+        lineStartY: 0,
+        lineBaseSnapshot: null,             // 7c-1: ImageData prije linije (za live preview)
         undoStack: []                       // dataURL-ovi nakon svakog poteza, max UNDO_MAX
     };
 
@@ -75,6 +78,7 @@
         state.color = DEFAULT_COLOR;
         state.strokeSize = DEFAULT_STROKE_SIZE;
         state.isDrawing = false;
+        state.lineBaseSnapshot = null;
         state.undoStack = [];
 
         buildOverlay();
@@ -98,6 +102,7 @@
         state.open = false;
         state.bgImage = null;
         state.isDrawing = false;
+        state.lineBaseSnapshot = null;
         state.undoStack = [];
         bgCanvas = drawCanvas = bgCtx = drawCtx = null;
 
@@ -136,6 +141,8 @@
                         data-tool="pen" aria-label="Olovka">✏️</button>
                 <button type="button" class="aufmass-tool-btn ${state.tool === 'eraser' ? 'active' : ''}"
                         data-tool="eraser" aria-label="Radirka">⬜</button>
+                <button type="button" class="aufmass-tool-btn aufmass-tool-btn-line ${state.tool === 'linija' ? 'active' : ''}"
+                        data-tool="linija" aria-label="Linija">╱ Linija</button>
 
                 <span class="aufmass-tools-sep" aria-hidden="true"></span>
 
@@ -299,7 +306,7 @@
     }
 
     function setTool(tool) {
-        if (tool !== 'pen' && tool !== 'eraser') return;
+        if (tool !== 'pen' && tool !== 'eraser' && tool !== 'linija') return;
         state.tool = tool;
         document.querySelectorAll('.aufmass-tool-btn[data-tool]').forEach(b => {
             b.classList.toggle('active', b.getAttribute('data-tool') === tool);
@@ -451,7 +458,21 @@
         state.lastX = pos.x;
         state.lastY = pos.y;
 
-        // Mali segment kako bi i jednostavni dodir ostavio točku.
+        if (state.tool === 'linija') {
+            // Snimi cijeli drawCanvas kao bazu - svaki sljedeći move vraća
+            // ovu bazu i preko nje crta novu liniju (živi preview bez tragova).
+            state.lineStartX = pos.x;
+            state.lineStartY = pos.y;
+            try {
+                state.lineBaseSnapshot = drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
+            } catch (err) {
+                state.lineBaseSnapshot = null;
+                console.error('Aufmass: getImageData za liniju nije moguć:', err);
+            }
+            return;  // Bez tap-dot-a - linija mora imati dva kraja.
+        }
+
+        // Olovka / radirka: mali segment kako bi i običan tap ostavio točku.
         drawCtx.beginPath();
         drawCtx.moveTo(pos.x, pos.y);
         drawCtx.lineTo(pos.x + 0.1, pos.y + 0.1);
@@ -463,18 +484,46 @@
         if (e.touches && e.touches.length > 1) return;
 
         const pos = getPos(e);
+
+        if (state.tool === 'linija') {
+            if (state.lineBaseSnapshot) {
+                drawCtx.putImageData(state.lineBaseSnapshot, 0, 0);
+            }
+            drawCtx.beginPath();
+            drawCtx.moveTo(state.lineStartX, state.lineStartY);
+            drawCtx.lineTo(pos.x, pos.y);
+            drawCtx.stroke();
+            state.lastX = pos.x;
+            state.lastY = pos.y;
+            return;
+        }
+
         drawCtx.beginPath();
         drawCtx.moveTo(state.lastX, state.lastY);
         drawCtx.lineTo(pos.x, pos.y);
         drawCtx.stroke();
-
         state.lastX = pos.x;
         state.lastY = pos.y;
     }
 
-    function endStroke() {
+    function endStroke(e) {
         if (!state.isDrawing) return;
         state.isDrawing = false;
+
+        if (state.tool === 'linija') {
+            // Finaliziraj liniju i u slučaju da korisnik nije pomaknuo prst -
+            // tako tap ostavlja makar točku na startu (round cap).
+            const pos = e ? getPos(e) : { x: state.lastX, y: state.lastY };
+            if (state.lineBaseSnapshot && drawCtx) {
+                drawCtx.putImageData(state.lineBaseSnapshot, 0, 0);
+                drawCtx.beginPath();
+                drawCtx.moveTo(state.lineStartX, state.lineStartY);
+                drawCtx.lineTo(pos.x, pos.y);
+                drawCtx.stroke();
+            }
+            state.lineBaseSnapshot = null;
+        }
+
         // Uvijek vrati composite na default - kritično nakon radirke.
         if (drawCtx) drawCtx.globalCompositeOperation = 'source-over';
         pushUndoSnapshot();

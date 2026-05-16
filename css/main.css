@@ -2645,6 +2645,13 @@ body.overlay-open {
     color: var(--color-danger);
 }
 
+.aufmass-tool-btn-line {
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    letter-spacing: 0.2px;
+}
+
 .aufmass-tool-btn-danger:active {
     background-color: rgba(181, 58, 43, 0.1);
 }
