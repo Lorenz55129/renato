@@ -2810,6 +2810,74 @@ body.overlay-open {
     margin-top: 2px;
 }
 
+/* ----- Vezane ponude u Narudžba-detalju (bidirekcijska veza) ----- */
+.linked-ponuda-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0;
+    margin: 0 0 8px 0;
+}
+
+.linked-ponuda-card {
+    background-color: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    min-height: var(--touch-target);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    outline: none;
+    transition: background-color 0.15s, transform 0.05s;
+}
+
+.linked-ponuda-card:active {
+    background-color: var(--color-cream-dark);
+    transform: scale(0.99);
+}
+
+.linked-ponuda-card:focus-visible {
+    box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.35);
+}
+
+.linked-ponuda-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.linked-ponuda-broj {
+    font-weight: 700;
+    color: var(--color-brown);
+    font-size: 0.9375rem;
+    letter-spacing: 0.3px;
+}
+
+.linked-ponuda-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+}
+
+.linked-ponuda-date {
+    color: var(--color-text-muted);
+    font-size: 0.8125rem;
+}
+
+.linked-ponuda-amount {
+    font-weight: 700;
+    color: var(--color-brown);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 .aufmass-tool-btn-danger:active {
     background-color: rgba(181, 58, 43, 0.1);
 }

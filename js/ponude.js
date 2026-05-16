@@ -451,7 +451,44 @@
         );
         if (!ok) return;
         updatePonuda(ponuda.id, { status: novi });
+
+        // Bidirekcijska sinkronizacija: prihvaceno → osvježi narudžbu (status + datum_isporuke)
+        if (novi === 'prihvaceno' && ponuda.narudzba_id) {
+            propagateAcceptanceToNarudzba(ponuda);
+        }
+
         renderDetail();
+    }
+
+    function propagateAcceptanceToNarudzba(ponuda) {
+        if (!window.App.Narudzbe || typeof window.App.Narudzbe.getById !== 'function') return;
+        const narudzba = window.App.Narudzbe.getById(ponuda.narudzba_id);
+        if (!narudzba) return;
+
+        // Što bi se točno promijenilo?
+        const patch = {};
+        if (narudzba.status === 'upit' || narudzba.status === 'ponuda') {
+            patch.status = 'narudzba';
+        }
+        if (ponuda.datum_valjanosti && !narudzba.datum_isporuke) {
+            patch.datum_isporuke = ponuda.datum_valjanosti;
+        }
+        if (Object.keys(patch).length === 0) return;
+
+        const ok = window.confirm(
+            "Ponuda prihvaćena. Želiš li automatski ažurirati status narudžbe na 'Narudžba'?"
+        );
+        if (!ok) return;
+
+        const sve = window.App.Storage.load('narudzbe', []);
+        const idx = sve.findIndex(n => n.id === ponuda.narudzba_id);
+        if (idx === -1) return;
+        sve[idx] = Object.assign({}, sve[idx], patch);
+        window.App.Storage.save('narudzbe', sve);
+
+        if (typeof window.App.Narudzbe.refreshDetail === 'function') {
+            window.App.Narudzbe.refreshDetail(ponuda.narudzba_id);
+        }
     }
 
     function handleDelete(ponuda) {
@@ -472,15 +509,16 @@
     }
 
     // ----- Forma (fullscreen overlay) -----
-    function openForm(editId) {
+    function openForm(editId, defaults) {
         closeForm();
+        defaults = defaults || {};
 
         const isEdit = !!editId;
         const p = isEdit ? (getById(editId) || {}) : {};
 
         formState = {
-            kupac_id: p.kupac_id || '',
-            narudzba_id: p.narudzba_id || '',
+            kupac_id: p.kupac_id || defaults.kupac_id || '',
+            narudzba_id: p.narudzba_id || defaults.narudzba_id || '',
             datum_ponude: p.datum_ponude || todayISO(),
             datum_valjanosti: p.datum_valjanosti || plusDaysISO(30),
             napomena_gornja: p.napomena_gornja || (isEdit ? '' : DEFAULT_NAPOMENA_GORNJA),
@@ -885,6 +923,11 @@
 
         closeForm();
 
+        // Cross-module sync: ako je ponuda vezana za narudžbu, osvježi njen detalj.
+        if (saved && saved.narudzba_id && window.App.Narudzbe && typeof window.App.Narudzbe.refreshDetail === 'function') {
+            window.App.Narudzbe.refreshDetail(saved.narudzba_id);
+        }
+
         if (saved) {
             showDetail(saved.id);
         } else {
@@ -937,6 +980,27 @@
         });
     }
 
+    // Postavi detaljni prikaz iz drugog modula (npr. iz Narudžbe ili Kalendara).
+    function openDetail(id) {
+        if (!getById(id)) return false;
+        state.view = 'detail';
+        state.selectedId = id;
+        if (window.App.Nav && window.App.Nav.currentModule === 'ponude') {
+            renderDetail();
+        }
+        return true;
+    }
+
+    // Pomoćnici za druge module (Narudžbe prikazuje broj/Brutto vezanih ponuda).
+    function getTotals(p) {
+        if (!p) return { netto: 0, pdv: 0, brutto: 0 };
+        return calcTotals(p.pozicije || [], p.pdv_posto);
+    }
+
+    function formatAmount(n) {
+        return formatEuro(n);
+    }
+
     // Javni API modula
     window.App = window.App || {};
     window.App.Ponude = {
@@ -945,6 +1009,10 @@
         getById,
         getByKupacId,
         getByNarudzbaId,
+        openDetail,
+        openForm,
+        getTotals,
+        formatAmount,
         STATUSI,
         STATUS_LABELS
     };

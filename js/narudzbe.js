@@ -300,6 +300,7 @@
 
         const sljedeci = nextStatus(n.status);
         const fotografije = n.fotografije || [];
+        const linkedPonude = getLinkedPonude(n.id);
         const m = n.mjere || {};
 
         container.innerHTML = `
@@ -419,6 +420,28 @@
                 <button type="button" class="btn btn-secondary btn-block" id="btn-aufmass">Nova skica</button>
             </section>
 
+            <section class="detail-section">
+                <h4 class="detail-section-title">Ponude <span class="detail-section-count">(${linkedPonude.length})</span></h4>
+                ${linkedPonude.length === 0
+                    ? `<p class="placeholder-hint">Nema povezanih ponuda.</p>`
+                    : `<ul class="linked-ponuda-list">
+                        ${linkedPonude.map(p => `
+                            <li class="linked-ponuda-card" data-ponuda-id="${escapeHtml(p.id)}" role="button" tabindex="0">
+                                <div class="linked-ponuda-main">
+                                    <div class="linked-ponuda-broj">${escapeHtml(p.broj || '?')}</div>
+                                    <div class="linked-ponuda-meta">
+                                        <span class="status-badge status-${escapeHtml(p.status)}">${escapeHtml(ponudaStatusLabel(p.status))}</span>
+                                        <span class="linked-ponuda-date">${escapeHtml(formatDate(p.datum_ponude))}</span>
+                                    </div>
+                                </div>
+                                <div class="linked-ponuda-amount">${escapeHtml(formatPonudaBrutto(p))}</div>
+                            </li>
+                        `).join('')}
+                       </ul>`
+                }
+                <button type="button" class="btn btn-secondary btn-block" id="btn-nova-ponuda-za-narudzbu">Nova ponuda za ovu narudžbu</button>
+            </section>
+
             <div class="detail-actions">
                 ${sljedeci
                     ? `<button type="button" class="btn btn-primary btn-block" id="btn-status">
@@ -487,6 +510,37 @@
                 }
             });
         });
+
+        // Vezane ponude: tap → otvori Ponude modul i prikaži ovu ponudu
+        container.querySelectorAll('.linked-ponuda-card').forEach(card => {
+            const pid = card.getAttribute('data-ponuda-id');
+            const open = () => {
+                if (!window.App.Ponude || typeof window.App.Ponude.openDetail !== 'function') return;
+                if (window.App.Ponude.openDetail(pid)) {
+                    window.App.Nav.show('ponude');
+                }
+            };
+            card.addEventListener('click', open);
+            card.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    open();
+                }
+            });
+        });
+
+        // Nova ponuda za ovu narudžbu (otvara Ponude formu s pretpunjenim kupcem/narudžbom)
+        const btnNovaPonuda = document.getElementById('btn-nova-ponuda-za-narudzbu');
+        if (btnNovaPonuda) {
+            btnNovaPonuda.addEventListener('click', () => {
+                if (window.App.Ponude && typeof window.App.Ponude.openForm === 'function') {
+                    window.App.Ponude.openForm(null, {
+                        narudzba_id: n.id,
+                        kupac_id: n.kupac_id
+                    });
+                }
+            });
+        }
     }
 
     function saveMjereField(narudzbaId, inputEl) {
@@ -515,6 +569,12 @@
         );
         if (!ok) return;
         updateNarudzba(n.id, { status: next });
+
+        // Bidirekcijska sinkronizacija: gotovo → ponudi auto-prihvati otvorene povezane ponude
+        if (next === 'gotovo') {
+            propagateGotovoToPonude(n.id);
+        }
+
         renderDetail();
     }
 
@@ -981,6 +1041,55 @@
         if (ov) ov.remove();
         if (!document.querySelector('.overlay') && !document.querySelector('.slide-panel') && !document.querySelector('.photo-viewer') && !document.querySelector('.gallery-viewer')) {
             document.body.classList.remove('overlay-open');
+        }
+    }
+
+    // ----- Vezane ponude (bidirekcijski hook prema Ponude modulu) -----
+    function getLinkedPonude(narudzbaId) {
+        if (!window.App.Ponude || typeof window.App.Ponude.getByNarudzbaId !== 'function') return [];
+        return window.App.Ponude.getByNarudzbaId(narudzbaId)
+            .slice()
+            .sort((a, b) => (b.datum_ponude || '').localeCompare(a.datum_ponude || ''));
+    }
+
+    function ponudaStatusLabel(s) {
+        if (window.App.Ponude && window.App.Ponude.STATUS_LABELS) {
+            return window.App.Ponude.STATUS_LABELS[s] || s || '';
+        }
+        return s || '';
+    }
+
+    function formatPonudaBrutto(p) {
+        if (window.App.Ponude
+            && typeof window.App.Ponude.getTotals === 'function'
+            && typeof window.App.Ponude.formatAmount === 'function') {
+            const t = window.App.Ponude.getTotals(p);
+            return window.App.Ponude.formatAmount(t.brutto);
+        }
+        return '';
+    }
+
+    function propagateGotovoToPonude(narudzbaId) {
+        if (!window.App.Ponude || typeof window.App.Ponude.getByNarudzbaId !== 'function') return;
+        const linked = window.App.Ponude.getByNarudzbaId(narudzbaId);
+        const otvorene = linked.filter(p => p.status !== 'prihvaceno' && p.status !== 'odbijeno');
+        if (otvorene.length === 0) return;
+
+        const ok = window.confirm(
+            `Narudžba je gotova. Označi sve povezane ponude kao prihvaćene? (${otvorene.length})`
+        );
+        if (!ok) return;
+
+        const sve = window.App.Storage.load('ponude', []);
+        let changed = false;
+        sve.forEach(p => {
+            if (otvorene.some(op => op.id === p.id)) {
+                p.status = 'prihvaceno';
+                changed = true;
+            }
+        });
+        if (changed) {
+            window.App.Storage.save('ponude', sve);
         }
     }
 
