@@ -431,10 +431,13 @@
             </div>
         `;
 
-        document.getElementById('btn-back-list').addEventListener('click', showList);
-        document.getElementById('btn-uredi').addEventListener('click', () => openForm(p.id));
-        document.getElementById('btn-obrisi').addEventListener('click', () => handleDelete(p));
-        document.getElementById('btn-pdf').addEventListener('click', printPonuda);
+        // Veže gumbe samo unutar Ponude detalja - inače getElementById
+        // može pogoditi istoimene gumbe iz drugih modula (npr. narudžbe)
+        // koji su još u DOM-u (samo skriveni).
+        container.querySelector('#btn-back-list').addEventListener('click', showList);
+        container.querySelector('#btn-uredi').addEventListener('click', () => openForm(p.id));
+        container.querySelector('#btn-obrisi').addEventListener('click', () => handleDelete(p));
+        container.querySelector('#btn-pdf').addEventListener('click', printPonuda);
 
         container.querySelectorAll('.ponuda-status-btn').forEach(btn => {
             btn.addEventListener('click', () => {
