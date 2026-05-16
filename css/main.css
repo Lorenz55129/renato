@@ -2600,6 +2600,127 @@ body.overlay-open {
     cursor: crosshair;
 }
 
+/* ----- Aufmaß 7b: alati u toolbaru ----- */
+.aufmass-tools-sep {
+    width: 1px;
+    height: 28px;
+    background-color: var(--color-border);
+    flex-shrink: 0;
+    margin: 0 2px;
+}
+
+.aufmass-tool-btn {
+    min-width: var(--touch-target);
+    min-height: 40px;
+    padding: 6px 10px;
+    background-color: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    font-size: 1.125rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.aufmass-tool-btn:active {
+    background-color: var(--color-cream-dark);
+}
+
+.aufmass-tool-btn.active {
+    background-color: var(--color-brown);
+    color: var(--color-cream);
+    border-color: var(--color-brown-dark);
+}
+
+.aufmass-tool-btn[disabled] {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.aufmass-tool-btn-danger {
+    color: var(--color-danger);
+}
+
+.aufmass-tool-btn-danger:active {
+    background-color: rgba(181, 58, 43, 0.1);
+}
+
+/* Boje */
+.aufmass-colors {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+.aufmass-color {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--color-border);
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    transition: transform 0.1s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.aufmass-color:active {
+    transform: scale(0.92);
+}
+
+.aufmass-color.active {
+    border-color: #FFFFFF;
+    box-shadow: 0 0 0 2px var(--color-brown), 0 2px 6px rgba(0, 0, 0, 0.25);
+    transform: scale(1.1);
+}
+
+/* Debljine */
+.aufmass-sizes {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+.aufmass-size-btn {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 4px 8px;
+    background-color: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.aufmass-size-btn:active {
+    background-color: var(--color-cream-dark);
+}
+
+.aufmass-size-btn.active {
+    background-color: var(--color-brown);
+    border-color: var(--color-brown-dark);
+}
+
+.aufmass-size-dot {
+    background-color: var(--color-text);
+    border-radius: 50%;
+    display: block;
+    transition: background-color 0.15s;
+}
+
+.aufmass-size-btn.active .aufmass-size-dot {
+    background-color: var(--color-cream);
+}
+
 /* ----- Veći ekrani (tablet i šire) ----- */
 @media (min-width: 768px) {
     .app-main {
