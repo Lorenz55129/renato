@@ -20,7 +20,6 @@
     const TEXT_SIZES = { S: 16, M: 22, L: 30 };
     const SIZE_DOT_VISUAL = { S: 4, M: 8, L: 14 };
     const DEFAULT_STROKE_SIZE = 'M';
-    const ERASER_MULTIPLIER = 4;
     const UNDO_MAX = 20;
 
     const state = {
@@ -44,10 +43,9 @@
         kotaEndY: 0,
         editingSkicaId: null,               // 7c-3: id postojeće skice u edit modu
         isDirty: false,                     // 7c-3: postoji li nespremljena promjena
-        undoStack: [],                      // dataURL-ovi nakon svakog poteza, max UNDO_MAX
-        elements: [],                       // Phase 1: objektni model elemenata na platnu
-        currentElement: null,               // Phase 1: element koji se trenutno crta (stift)
-        elementsHistory: []                 // Phase 1: paralelna povijest za undo
+        elements: [],                       // Phase 2: objektni model - jedini izvor istine za crtež
+        currentElement: null,               // build buffer za stift tijekom poteza
+        elementsHistory: []                 // undo povijest (snapshot-i state.elements)
     };
 
     let bgCanvas = null;
@@ -95,7 +93,6 @@
         state.lineBaseSnapshot = null;
         state.editingSkicaId = skicaId || null;
         state.isDirty = false;
-        state.undoStack = [];
         state.elements = [];
         state.currentElement = null;
         state.elementsHistory = [];
@@ -110,23 +107,36 @@
             setupCanvases();
             redrawBg();
 
-            // 7c-3: edit mod - učitaj postojeću skicu u drawCanvas i inicijaliziraj undo stack.
+            // Phase 2: edit mod - pokušaj učitati objektni model; legacy skica
+            // (samo imageData) renderira se kao bitmapa, elements ostaje []
+            // (Phase 4 migrira u objekte).
             if (state.editingSkicaId) {
                 const skica = (n.aufmass_skice || []).find(s => s.id === state.editingSkicaId);
-                if (skica && skica.imageData) {
+                if (skica && Array.isArray(skica.elements) && skica.elements.length > 0) {
+                    state.elements = skica.elements.slice();
+                    renderElements();
+                    pushUndoSnapshot();
+                    updateSpremiButton();
+                } else if (skica && skica.imageData) {
                     const img = new Image();
                     img.onload = () => {
                         if (!drawCtx) return;
                         drawCtx.drawImage(img, 0, 0, drawCanvas.clientWidth, drawCanvas.clientHeight);
+                        // Legacy: bitmapa ostaje na platnu, elements je [] - undo bi
+                        // u Phase 2 obrisao bitmapu, Phase 4 popravlja kroz migraciju.
                         pushUndoSnapshot();
                         updateSpremiButton();
                     };
                     img.src = skica.imageData;
                 } else {
-                    // Edit traženo, ali skica ne postoji - tretiraj kao nov
                     state.editingSkicaId = null;
+                    renderElements();
+                    pushUndoSnapshot();
                 }
-                updateSpremiButton();
+            } else {
+                // Nova skica: prazan elements + baseline.
+                renderElements();
+                pushUndoSnapshot();
             }
         });
     }
@@ -143,7 +153,6 @@
         state.lineBaseSnapshot = null;
         state.editingSkicaId = null;
         state.isDirty = false;
-        state.undoStack = [];
         state.elements = [];
         state.currentElement = null;
         state.elementsHistory = [];
@@ -182,8 +191,6 @@
 
                 <button type="button" class="aufmass-tool-btn ${state.tool === 'pen' ? 'active' : ''}"
                         data-tool="pen" aria-label="Olovka">✏️</button>
-                <button type="button" class="aufmass-tool-btn ${state.tool === 'eraser' ? 'active' : ''}"
-                        data-tool="eraser" aria-label="Radirka">⬜</button>
                 <button type="button" class="aufmass-tool-btn aufmass-tool-btn-line ${state.tool === 'linija' ? 'active' : ''}"
                         data-tool="linija" aria-label="Linija">╱ Linija</button>
                 <button type="button" class="aufmass-tool-btn aufmass-tool-btn-line ${state.tool === 'tekst' ? 'active' : ''}"
@@ -353,7 +360,7 @@
     }
 
     function setTool(tool) {
-        if (tool !== 'pen' && tool !== 'eraser' && tool !== 'linija' && tool !== 'tekst' && tool !== 'kota') return;
+        if (tool !== 'pen' && tool !== 'linija' && tool !== 'tekst' && tool !== 'kota') return;
         state.tool = tool;
         document.querySelectorAll('.aufmass-tool-btn[data-tool]').forEach(b => {
             b.classList.toggle('active', b.getAttribute('data-tool') === tool);
@@ -366,8 +373,6 @@
         document.querySelectorAll('.aufmass-color').forEach(b => {
             b.classList.toggle('active', b.getAttribute('data-color') === color);
         });
-        // Ako je radirka aktivna, prebaci na olovku - korisnik je očito odabrao boju.
-        if (state.tool === 'eraser') setTool('pen');
     }
 
     function setStrokeSize(size) {
@@ -407,10 +412,6 @@
     }
 
     function clearDrawingAndStack() {
-        if (drawCtx) {
-            drawCtx.clearRect(0, 0, drawCanvas.clientWidth, drawCanvas.clientHeight);
-        }
-        state.undoStack = [];
         state.elements = [];
         state.currentElement = null;
         state.elementsHistory = [];
@@ -418,6 +419,8 @@
         state.lineBaseSnapshot = null;
         closeKotaPopup();
         closeTextPopup();
+        renderElements();
+        pushUndoSnapshot();  // baseline za buduće undo
         updateUndoButton();
         updateSpremiButton();
     }
@@ -425,19 +428,11 @@
     // ----- Resize -----
     function onResize() {
         if (!state.open) return;
-        let preserved = null;
-        if (drawCanvas) {
-            try { preserved = drawCanvas.toDataURL(); } catch (err) { preserved = null; }
-        }
         setupCanvases();
         redrawBg();
-        if (preserved && drawCtx) {
-            const img = new Image();
-            img.onload = () => {
-                drawCtx.drawImage(img, 0, 0, drawCanvas.clientWidth, drawCanvas.clientHeight);
-            };
-            img.src = preserved;
-        }
+        // Phase 2: ponovo nacrtaj iz objektnog modela; koordinate su iste
+        // (CSS px), pa elementi sjedaju na svoja mjesta.
+        renderElements();
     }
 
     // ----- Crtanje (olovka / radirka) -----
@@ -489,15 +484,9 @@
         if (!drawCtx) return;
         drawCtx.lineCap = 'round';
         drawCtx.lineJoin = 'round';
-        if (state.tool === 'eraser') {
-            drawCtx.globalCompositeOperation = 'destination-out';
-            drawCtx.lineWidth = STROKE_SIZES[state.strokeSize] * ERASER_MULTIPLIER;
-            drawCtx.strokeStyle = 'rgba(0,0,0,1)';
-        } else {
-            drawCtx.globalCompositeOperation = 'source-over';
-            drawCtx.lineWidth = STROKE_SIZES[state.strokeSize];
-            drawCtx.strokeStyle = state.color;
-        }
+        drawCtx.globalCompositeOperation = 'source-over';
+        drawCtx.lineWidth = STROKE_SIZES[state.strokeSize];
+        drawCtx.strokeStyle = state.color;
     }
 
     function startStroke(e) {
@@ -574,7 +563,7 @@
             if (state.lineBaseSnapshot) {
                 drawCtx.putImageData(state.lineBaseSnapshot, 0, 0);
             }
-            drawKota(drawCtx, state.lineStartX, state.lineStartY, pos.x, pos.y, '');
+            drawKota(drawCtx, state.lineStartX, state.lineStartY, pos.x, pos.y, '', state.color, state.strokeSize);
             state.lastX = pos.x;
             state.lastY = pos.y;
             return;
@@ -619,36 +608,26 @@
         }
 
         if (state.tool === 'kota') {
-            // Finaliziraj preview liniju (bez teksta) i otvori popup za mjeru.
+            // Komitirana scena + preview kote dok je popup otvoren.
             const pos = e ? getPos(e) : { x: state.lastX, y: state.lastY };
-            if (state.lineBaseSnapshot && drawCtx) {
-                drawCtx.putImageData(state.lineBaseSnapshot, 0, 0);
-                drawKota(drawCtx, state.lineStartX, state.lineStartY, pos.x, pos.y, '');
-            }
+            state.lineBaseSnapshot = null;
             state.kotaEndX = pos.x;
             state.kotaEndY = pos.y;
+            renderElements();
+            if (drawCtx) {
+                drawKota(drawCtx, state.lineStartX, state.lineStartY, pos.x, pos.y, '', state.color, state.strokeSize);
+            }
             const dx = pos.x - state.lineStartX;
             const dy = pos.y - state.lineStartY;
             const pixelDist = Math.round(Math.sqrt(dx * dx + dy * dy));
             openKotaPopup(state.lineStartX, state.lineStartY, pos.x, pos.y, pixelDist);
             if (drawCtx) drawCtx.globalCompositeOperation = 'source-over';
-            return;  // commit/cancel u popupu pushaju undo
+            return;  // commit/cancel u popupu rade renderElements + pushUndoSnapshot
         }
 
         if (state.tool === 'linija') {
-            // Finaliziraj liniju i u slučaju da korisnik nije pomaknuo prst -
-            // tako tap ostavlja makar točku na startu (round cap).
             const pos = e ? getPos(e) : { x: state.lastX, y: state.lastY };
-            if (state.lineBaseSnapshot && drawCtx) {
-                drawCtx.putImageData(state.lineBaseSnapshot, 0, 0);
-                drawCtx.beginPath();
-                drawCtx.moveTo(state.lineStartX, state.lineStartY);
-                drawCtx.lineTo(pos.x, pos.y);
-                drawCtx.stroke();
-            }
             state.lineBaseSnapshot = null;
-
-            // Phase 1: tracking
             state.elements.push({
                 id: generateElementId(),
                 type: 'linija',
@@ -659,81 +638,44 @@
                     { x: pos.x, y: pos.y }
                 ]
             });
-            console.log('elements:', state.elements.length, JSON.parse(JSON.stringify(state.elements)));
         }
 
-        // Phase 1: stift - element je već izgrađen u start/move, sada ga commit-aj.
         if (state.tool === 'pen' && state.currentElement) {
             state.elements.push(state.currentElement);
             state.currentElement = null;
-            console.log('elements:', state.elements.length, JSON.parse(JSON.stringify(state.elements)));
         }
 
-        // Uvijek vrati composite na default - kritično nakon radirke.
         if (drawCtx) drawCtx.globalCompositeOperation = 'source-over';
+        renderElements();
         pushUndoSnapshot();
         state.isDirty = true;
         updateSpremiButton();
     }
 
-    // ----- Undo -----
+    // ----- Undo (Phase 2: samo elements-povijest, bez bitmap snapshot-a) -----
     function pushUndoSnapshot() {
-        if (!drawCanvas) return;
-        try {
-            const data = drawCanvas.toDataURL('image/png');
-            state.undoStack.push(data);
-            if (state.undoStack.length > UNDO_MAX) {
-                state.undoStack.shift();
-            }
-            // Phase 1: paralelno čuvaj snapshot elemenata
-            state.elementsHistory = state.elementsHistory || [];
-            state.elementsHistory.push(state.elements.slice());
-            if (state.elementsHistory.length > UNDO_MAX) {
-                state.elementsHistory.shift();
-            }
-            updateUndoButton();
-        } catch (err) {
-            console.error('Aufmass: undo snapshot nije moguć:', err);
+        state.elementsHistory = state.elementsHistory || [];
+        state.elementsHistory.push(state.elements.slice());
+        if (state.elementsHistory.length > UNDO_MAX) {
+            state.elementsHistory.shift();
         }
+        updateUndoButton();
     }
 
     function undo() {
-        if (state.undoStack.length === 0) return;
+        if (!state.elementsHistory || state.elementsHistory.length <= 1) return;
 
-        state.undoStack.pop();
-        // Phase 1: paralelno popni elementsHistory
-        if (state.elementsHistory && state.elementsHistory.length > 0) {
-            state.elementsHistory.pop();
-        }
-
-        if (drawCtx) {
-            drawCtx.clearRect(0, 0, drawCanvas.clientWidth, drawCanvas.clientHeight);
-        }
-
-        if (state.undoStack.length > 0) {
-            const data = state.undoStack[state.undoStack.length - 1];
-            const img = new Image();
-            img.onload = () => {
-                if (drawCtx) {
-                    drawCtx.drawImage(img, 0, 0, drawCanvas.clientWidth, drawCanvas.clientHeight);
-                }
-            };
-            img.src = data;
-        }
-
-        // Phase 1: restore elements iz vrha povijesti
-        if (state.elementsHistory && state.elementsHistory.length > 0) {
-            state.elements = state.elementsHistory[state.elementsHistory.length - 1].slice();
-        } else {
-            state.elements = [];
-        }
+        state.elementsHistory.pop();
+        const prev = state.elementsHistory[state.elementsHistory.length - 1] || [];
+        state.elements = prev.slice();
+        renderElements();
 
         updateUndoButton();
         updateSpremiButton();
     }
 
     function handleClear() {
-        if (state.undoStack.length === 0) return;
+        if (state.elements.length === 0) return;
         if (!window.confirm('Izbrisati cijeli crtež?')) return;
         clearDrawingAndStack();
     }
@@ -907,7 +849,9 @@
 
     function updateUndoButton() {
         const btn = document.getElementById('aufmass-undo');
-        if (btn) btn.disabled = state.undoStack.length === 0;
+        if (!btn) return;
+        // Baseline (prvi push pri otvaranju) je length===1; tek od 2 ima što popovati.
+        btn.disabled = !state.elementsHistory || state.elementsHistory.length <= 1;
     }
 
     function updateSpremiButton() {
@@ -982,8 +926,6 @@
         if (!input) { closeTextPopup(); return; }
         const text = input.value;
         if (text && text.trim()) {
-            drawText(text, state.textTapX, state.textTapY);
-            // Phase 1: tracking
             state.elements.push({
                 id: generateElementId(),
                 type: 'tekst',
@@ -993,7 +935,7 @@
                 y: state.textTapY,
                 text: text
             });
-            console.log('elements:', state.elements.length, JSON.parse(JSON.stringify(state.elements)));
+            renderElements();
             pushUndoSnapshot();
             state.isDirty = true;
             updateSpremiButton();
@@ -1016,6 +958,59 @@
         drawCtx.fillText(text, x, y);
     }
 
+    // ----- Phase 2: master render iz state.elements -----
+    function renderElements() {
+        if (!drawCtx || !drawCanvas) return;
+        drawCtx.clearRect(0, 0, drawCanvas.clientWidth, drawCanvas.clientHeight);
+        for (let i = 0; i < state.elements.length; i++) {
+            renderElement(state.elements[i]);
+        }
+    }
+
+    function renderElement(el) {
+        if (!drawCtx || !el) return;
+        drawCtx.save();
+        drawCtx.strokeStyle = el.color;
+        drawCtx.fillStyle = el.color;
+        drawCtx.lineWidth = STROKE_SIZES[el.size] || 2;
+        drawCtx.lineCap = 'round';
+        drawCtx.lineJoin = 'round';
+        drawCtx.globalCompositeOperation = 'source-over';
+
+        if (el.type === 'stift') {
+            const pts = el.points || [];
+            if (pts.length === 1) {
+                drawCtx.beginPath();
+                drawCtx.arc(pts[0].x, pts[0].y, drawCtx.lineWidth / 2, 0, Math.PI * 2);
+                drawCtx.fill();
+            } else if (pts.length > 1) {
+                drawCtx.beginPath();
+                drawCtx.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) {
+                    drawCtx.lineTo(pts[i].x, pts[i].y);
+                }
+                drawCtx.stroke();
+            }
+        } else if (el.type === 'linija') {
+            const pts = el.points || [];
+            if (pts.length >= 2) {
+                drawCtx.beginPath();
+                drawCtx.moveTo(pts[0].x, pts[0].y);
+                drawCtx.lineTo(pts[1].x, pts[1].y);
+                drawCtx.stroke();
+            }
+        } else if (el.type === 'tekst') {
+            const size = TEXT_SIZES[el.size] || TEXT_SIZES.M;
+            drawCtx.font = size + 'px sans-serif';
+            drawCtx.textBaseline = 'top';
+            drawCtx.fillText(el.text || '', el.x, el.y);
+        } else if (el.type === 'kota') {
+            drawKota(drawCtx, el.x1, el.y1, el.x2, el.y2, el.text, el.color, el.size);
+        }
+
+        drawCtx.restore();
+    }
+
     // ----- Kota (kotirana linija s strelicama i tekstom mjere) -----
     function drawArrow(ctx, fromX, fromY, toX, toY, size) {
         const angle = Math.atan2(toY - fromY, toX - fromX);
@@ -1033,37 +1028,35 @@
         ctx.fill();
     }
 
-    function drawKota(ctx, x1, y1, x2, y2, text) {
+    function drawKota(ctx, x1, y1, x2, y2, text, color, sizeKey) {
         const ARROW = 10;
 
         ctx.save();
-        ctx.strokeStyle = state.color;
-        ctx.fillStyle = state.color;
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         ctx.globalCompositeOperation = 'source-over';
 
-        // Hauptlinie
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
         ctx.stroke();
 
-        // Pfeile an beiden Enden
         drawArrow(ctx, x2, y2, x1, y1, ARROW);
         drawArrow(ctx, x1, y1, x2, y2, ARROW);
 
         if (text) {
             const mx = (x1 + x2) / 2;
             const my = (y1 + y2) / 2;
-            const size = TEXT_SIZES[state.strokeSize] || 18;
+            const size = TEXT_SIZES[sizeKey] || 18;
             ctx.font = `bold ${size}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
             const tw = ctx.measureText(text).width;
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(mx - tw / 2 - 3, my - size - 3, tw + 6, size + 4);
-            ctx.fillStyle = state.color;
+            ctx.fillStyle = color;
             ctx.fillText(text, mx, my - 2);
         }
 
@@ -1135,12 +1128,7 @@
         const input = document.getElementById('aufmass-kota-input');
         const text = input ? (input.value || '').trim() : '';
 
-        if (drawCtx && state.lineBaseSnapshot) {
-            drawCtx.putImageData(state.lineBaseSnapshot, 0, 0);
-            drawKota(drawCtx, state.lineStartX, state.lineStartY, state.kotaEndX, state.kotaEndY, text);
-        }
         state.lineBaseSnapshot = null;
-        // Phase 1: tracking
         state.elements.push({
             id: generateElementId(),
             type: 'kota',
@@ -1152,23 +1140,19 @@
             y2: state.kotaEndY,
             text: text
         });
-        console.log('elements:', state.elements.length, JSON.parse(JSON.stringify(state.elements)));
         closeKotaPopup();
+        renderElements();
         pushUndoSnapshot();
         state.isDirty = true;
         updateSpremiButton();
     }
 
     function cancelKota() {
-        if (drawCtx && state.lineBaseSnapshot) {
-            drawCtx.putImageData(state.lineBaseSnapshot, 0, 0);
-        }
+        // Otkažeš kotu - element se ne dodaje. Samo re-render sa
+        // postojećim elementima briše preview-liniju.
         state.lineBaseSnapshot = null;
         closeKotaPopup();
-        // Per prompt: undo pushen i nakon abort - snapshot odgovara stanju prije kote.
-        pushUndoSnapshot();
-        state.isDirty = true;
-        updateSpremiButton();
+        renderElements();
     }
 
     function closeKotaPopup() {
