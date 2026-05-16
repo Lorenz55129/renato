@@ -71,10 +71,10 @@
                         </button>
                     </li>
                     <li>
-                        <div class="menu-item menu-item-disabled" aria-disabled="true">
+                        <button type="button" class="menu-item" data-target="galerija">
                             <span class="menu-item-label">Galerija</span>
-                            <span class="menu-item-hint">U izradi</span>
-                        </div>
+                            <span class="menu-item-arrow" aria-hidden="true">›</span>
+                        </button>
                     </li>
                 </ul>
             </div>
@@ -87,6 +87,16 @@
             </div>
             <div class="module-content" id="ponude-content">
                 <!-- Sadržaj se generira iz js/ponude.js -->
+            </div>
+        </section>
+
+        <!-- Galerija modul (dostupan iz "Više") -->
+        <section class="module hidden" id="module-galerija" data-module="galerija">
+            <div class="module-header">
+                <h2>Galerija</h2>
+            </div>
+            <div class="module-content" id="galerija-content">
+                <!-- Sadržaj se generira iz js/galerija.js -->
             </div>
         </section>
     </main>
@@ -145,5 +155,6 @@
     <script src="js/narudzbe.js"></script>
     <script src="js/kalendar.js"></script>
     <script src="js/ponude.js"></script>
+    <script src="js/galerija.js"></script>
 </body>
 </html>

@@ -21,6 +21,9 @@
         gotovo: 'Gotovo'
     };
 
+    const KATEGORIJE = ['Kuhinja', 'Spavaća soba', 'Dnevni boravak', 'Kupaonica', 'Ured', 'Ostalo'];
+    const DEFAULT_KATEGORIJA = 'Ostalo';
+
     // Maksimalne dimenzije i kvaliteta za kompresiju fotografija (zaštita localStorage limita).
     const PHOTO_MAX_DIM = 1280;
     const PHOTO_QUALITY = 0.82;
@@ -104,6 +107,7 @@
             opis: (data.opis || '').trim(),
             materijal: (data.materijal || '').trim(),
             boja_povrsina: (data.boja_povrsina || '').trim(),
+            kategorija: KATEGORIJE.includes(data.kategorija) ? data.kategorija : DEFAULT_KATEGORIJA,
             mjere: buildMjere(data.mjere),
             fotografije: [],
             datum_unosa: todayISO(),
@@ -337,6 +341,11 @@
                     <div class="detail-label">Boja i površina</div>
                     <div class="detail-value">${escapeHtml(n.boja_povrsina || '—')}</div>
                 </div>
+
+                <div class="detail-row">
+                    <div class="detail-label">Kategorija</div>
+                    <div class="detail-value">${escapeHtml(n.kategorija || DEFAULT_KATEGORIJA)}</div>
+                </div>
             </div>
 
             <section class="detail-section">
@@ -461,6 +470,31 @@
     }
 
     // ----- Foto: dodaj / prikaži / obriši -----
+    // Javna funkcija - koristi je galerija i interni handler.
+    async function addFoto(narudzbaId, file) {
+        const base64 = await compressImage(file);
+        const n = getById(narudzbaId);
+        if (!n) throw new Error('Narudžba ne postoji.');
+        const fotografije = [...(n.fotografije || []), base64];
+        const ok = updateNarudzba(narudzbaId, { fotografije });
+        if (!ok) throw new Error('Spremanje nije uspjelo (prostor je možda pun).');
+        if (window.App.Galerija && typeof window.App.Galerija.refresh === 'function') {
+            window.App.Galerija.refresh();
+        }
+        return getById(narudzbaId);
+    }
+
+    function removeFoto(narudzbaId, index) {
+        const n = getById(narudzbaId);
+        if (!n) return null;
+        const fotografije = (n.fotografije || []).filter((_, i) => i !== index);
+        updateNarudzba(narudzbaId, { fotografije });
+        if (window.App.Galerija && typeof window.App.Galerija.refresh === 'function') {
+            window.App.Galerija.refresh();
+        }
+        return getById(narudzbaId);
+    }
+
     async function handlePhotoSelect(e) {
         const file = e.target.files && e.target.files[0];
         e.target.value = '';   // reset za ponovni odabir iste datoteke
@@ -470,19 +504,11 @@
         if (status) status.textContent = 'Obrađujem fotografiju...';
 
         try {
-            const base64 = await compressImage(file);
-            const n = getById(state.selectedId);
-            if (!n) return;
-            const fotografije = [...(n.fotografije || []), base64];
-            const ok = updateNarudzba(n.id, { fotografije });
-            if (!ok) {
-                if (status) status.textContent = 'Greška pri spremanju (prostor je možda pun).';
-                return;
-            }
+            await addFoto(state.selectedId, file);
             renderDetail();
         } catch (err) {
             console.error('Greška pri dodavanju fotografije:', err);
-            if (status) status.textContent = 'Greška pri dodavanju fotografije.';
+            if (status) status.textContent = err.message || 'Greška pri dodavanju fotografije.';
         }
     }
 
@@ -535,10 +561,8 @@
     }
 
     function deletePhoto(index) {
-        const n = getById(state.selectedId);
-        if (!n) return;
-        const fotografije = (n.fotografije || []).filter((_, i) => i !== index);
-        updateNarudzba(n.id, { fotografije });
+        if (!state.selectedId) return;
+        removeFoto(state.selectedId, index);
     }
 
     // ----- Forma (fullscreen overlay) za novu / uređivanje -----
@@ -598,6 +622,13 @@
                     <label class="form-label" for="f-boja">Boja i površina</label>
                     <input class="form-input" id="f-boja" name="boja_povrsina" type="text"
                            value="${escapeHtml(n.boja_povrsina || '')}">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="f-kategorija">Kategorija</label>
+                    <select class="form-select" id="f-kategorija" name="kategorija">
+                        ${KATEGORIJE.map(k => `<option value="${escapeHtml(k)}"${(n.kategorija || DEFAULT_KATEGORIJA) === k ? ' selected' : ''}>${escapeHtml(k)}</option>`).join('')}
+                    </select>
                 </div>
 
                 <fieldset class="form-fieldset">
@@ -706,6 +737,7 @@
             opis: form.opis.value,
             materijal: form.materijal.value,
             boja_povrsina: form.boja_povrsina.value,
+            kategorija: form.kategorija ? form.kategorija.value : DEFAULT_KATEGORIJA,
             mjere: {
                 sirina: form.mjere_sirina.value,
                 visina: form.mjere_visina.value,
@@ -748,6 +780,7 @@
                 opis: data.opis.trim(),
                 materijal: data.materijal.trim(),
                 boja_povrsina: data.boja_povrsina.trim(),
+                kategorija: KATEGORIJE.includes(data.kategorija) ? data.kategorija : DEFAULT_KATEGORIJA,
                 mjere: buildMjere(data.mjere),
                 datum_isporuke: data.datum_isporuke
             });
@@ -837,8 +870,12 @@
         getByKupacId,
         openForm,
         openDetail,
+        addFoto,
+        removeFoto,
         STATUSI,
-        STATUS_LABELS
+        STATUS_LABELS,
+        KATEGORIJE,
+        DEFAULT_KATEGORIJA
     };
 
     if (document.readyState === 'loading') {
