@@ -906,6 +906,14 @@
             saved = createNarudzba(data);
         }
 
+        // Auto-kreiraj isporuka termin ako su uvjeti zadovoljeni
+        if (saved) {
+            const AKTIVNI_STATUSI = ['narudzba', 'izrada', 'montaza'];
+            if (saved.datum_isporuke && AKTIVNI_STATUSI.includes(saved.status)) {
+                createIsporukaTermin(saved);
+            }
+        }
+
         closeForm();
 
         if (editId && state.view === 'detail' && state.selectedId === editId) {
@@ -1093,6 +1101,46 @@
         }
     }
 
+    // Auto-kreiraj montaža/isporuka termin u kalendaru kad narudžba ima
+    // datum_isporuke i status je aktivan. Sprječava duplikate.
+    function createIsporukaTermin(narudzba) {
+        if (!narudzba || !narudzba.datum_isporuke) return;
+        const AKTIVNI = ['narudzba', 'izrada', 'montaza'];
+        if (!AKTIVNI.includes(narudzba.status)) return;
+        if (!window.App || !window.App.Storage) return;
+
+        const termini = window.App.Storage.load('termini', []);
+        const postoji = termini.some(t =>
+            t.narudzba_id === narudzba.id &&
+            t.tip === 'montaza' &&
+            t.datum === narudzba.datum_isporuke
+        );
+        if (postoji) return;
+
+        const kupac = (window.App.Kupci && typeof window.App.Kupci.getById === 'function')
+            ? window.App.Kupci.getById(narudzba.kupac_id)
+            : null;
+
+        termini.push({
+            id: window.App.Storage.generateId(),
+            narudzba_id: narudzba.id,
+            kupac_naziv: kupac ? kupac.ime : (narudzba.naziv || ''),
+            tip: 'montaza',
+            naziv: 'Isporuka: ' + (narudzba.naziv || ''),
+            datum: narudzba.datum_isporuke,
+            vrijeme_od: '',
+            vrijeme_do: '',
+            napomena: 'Automatski kreiran pri postavljanju datuma isporuke.',
+            datum_unosa: new Date().toISOString()
+        });
+
+        window.App.Storage.save('termini', termini);
+
+        if (window.App.Kalendar && typeof window.App.Kalendar.refresh === 'function') {
+            window.App.Kalendar.refresh();
+        }
+    }
+
     // Javno: pozivaju ga drugi moduli (npr. aufmass nakon spremanja skice).
     function refreshDetail(narudzbaId) {
         if (state.view === 'detail' && state.selectedId === narudzbaId) {
@@ -1123,6 +1171,7 @@
         refreshDetail,
         addFoto,
         removeFoto,
+        createIsporukaTermin,
         STATUSI,
         STATUS_LABELS,
         KATEGORIJE,

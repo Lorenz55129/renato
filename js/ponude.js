@@ -486,6 +486,15 @@
         sve[idx] = Object.assign({}, sve[idx], patch);
         window.App.Storage.save('narudzbe', sve);
 
+        // Auto-kreiraj isporuka termin ako je narudžba sada aktivna s datumom isporuke.
+        const patchedNarudzba = sve[idx];
+        const AKTIVNI_STATUSI = ['narudzba', 'izrada', 'montaza'];
+        if (patchedNarudzba.datum_isporuke
+            && AKTIVNI_STATUSI.includes(patchedNarudzba.status)
+            && typeof window.App.Narudzbe.createIsporukaTermin === 'function') {
+            window.App.Narudzbe.createIsporukaTermin(patchedNarudzba);
+        }
+
         if (typeof window.App.Narudzbe.refreshDetail === 'function') {
             window.App.Narudzbe.refreshDetail(ponuda.narudzba_id);
         }

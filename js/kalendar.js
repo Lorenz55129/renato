@@ -875,12 +875,20 @@
         });
     }
 
+    // Pozivaju je drugi moduli nakon dodavanja/promjene termina (npr. narudžbe).
+    function refresh() {
+        if (window.App.Nav && window.App.Nav.currentModule === 'kalendar') {
+            render();
+        }
+    }
+
     // Javni API modula
     window.App = window.App || {};
     window.App.Kalendar = {
         init,
         getAll,
         getByDatum,
+        refresh,
         TIPOVI,
         TIP_LABELS,
         TIP_COLORS
