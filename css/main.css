@@ -2600,6 +2600,46 @@ body.overlay-open {
     cursor: crosshair;
 }
 
+/* ----- Aufmaß Phase 4: legacy mode banner + zatamnjeni alati ----- */
+.aufmass-legacy-banner {
+    background-color: var(--color-gold);
+    color: var(--color-brown-dark);
+    padding: 10px 14px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+    line-height: 1.3;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--color-gold-dark);
+}
+
+.aufmass-overlay.aufmass-legacy .aufmass-tool-btn,
+.aufmass-overlay.aufmass-legacy .aufmass-mode-btn,
+.aufmass-overlay.aufmass-legacy .aufmass-color,
+.aufmass-overlay.aufmass-legacy .aufmass-size-btn,
+.aufmass-overlay.aufmass-legacy .aufmass-photo-load,
+.aufmass-overlay.aufmass-legacy .aufmass-tools-sep {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+/* ----- Skica preview placeholder + viewer fallback ----- */
+.skica-no-preview {
+    color: var(--color-text-muted);
+    font-size: 0.6875rem;
+    font-style: italic;
+    text-align: center;
+    padding: 0 6px;
+    line-height: 1.2;
+}
+
+.skica-viewer-empty {
+    color: var(--color-cream);
+    font-size: 1rem;
+    text-align: center;
+    padding: 24px;
+}
+
 /* ----- Aufmaß 7b: alati u toolbaru ----- */
 .aufmass-tools-sep {
     width: 1px;

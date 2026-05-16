@@ -28,7 +28,10 @@
         narudzbaNaziv: '',
         mode: 'karo',                       // 'karo' | 'foto'
         bgImage: null,
-        tool: 'pen',                        // 'pen' | 'eraser'
+        fotoDataUrl: null,                  // Phase 4: kompresirani JPEG za foto pozadinu
+        legacyMode: false,                  // Phase 4: skica je u starom formatu (samo bitmap)
+        legacyImageData: null,              // Phase 4: bitmap iz legacy skice (za migraciju pri save)
+        tool: 'pen',                        // 'pen' | 'linija' | 'tekst' | 'kota'
         color: DEFAULT_COLOR,
         strokeSize: DEFAULT_STROKE_SIZE,
         isDrawing: false,
@@ -52,6 +55,10 @@
     let drawCanvas = null;
     let bgCtx = null;
     let drawCtx = null;
+
+    // Phase 4: keširanje Image objekata za legacy-bitmap elemente (po el.id).
+    // Drži se izvan state-a jer Image nije serijalizabilan u JSON.
+    const imageCache = new Map();
 
     // ----- Pomoćno -----
     function escapeHtml(value) {
@@ -86,6 +93,9 @@
         state.narudzbaNaziv = n.naziv || 'Bez naziva';
         state.mode = 'karo';
         state.bgImage = null;
+        state.fotoDataUrl = null;
+        state.legacyMode = false;
+        state.legacyImageData = null;
         state.tool = 'pen';
         state.color = DEFAULT_COLOR;
         state.strokeSize = DEFAULT_STROKE_SIZE;
@@ -94,6 +104,7 @@
         state.editingSkicaId = skicaId || null;
         state.isDirty = false;
         state.elements = [];
+        imageCache.clear();
         state.currentElement = null;
         state.elementsHistory = [];
 
@@ -105,40 +116,93 @@
 
         requestAnimationFrame(() => {
             setupCanvases();
-            redrawBg();
 
-            // Phase 2: edit mod - pokušaj učitati objektni model; legacy skica
-            // (samo imageData) renderira se kao bitmapa, elements ostaje []
-            // (Phase 4 migrira u objekte).
+            // Phase 4: edit-mod loading
             if (state.editingSkicaId) {
                 const skica = (n.aufmass_skice || []).find(s => s.id === state.editingSkicaId);
-                if (skica && Array.isArray(skica.elements) && skica.elements.length > 0) {
+
+                if (skica && Array.isArray(skica.elements)) {
+                    // Novi format - objekt-baziran
                     state.elements = skica.elements.slice();
-                    renderElements();
-                    pushUndoSnapshot();
-                    updateSpremiButton();
+                    state.mode = skica.bgMode === 'foto' ? 'foto' : 'karo';
+                    syncModeToggleUI();
+
+                    if (state.mode === 'foto' && skica.bgFoto) {
+                        loadFotoFromDataUrl(skica.bgFoto).then(() => {
+                            redrawBg();
+                            renderElements();
+                            pushUndoSnapshot();
+                            updateSpremiButton();
+                        });
+                    } else {
+                        redrawBg();
+                        renderElements();
+                        pushUndoSnapshot();
+                        updateSpremiButton();
+                    }
                 } else if (skica && skica.imageData) {
+                    // Legacy: samo bitmap. Onemogući alate i prikaži banner.
+                    state.legacyMode = true;
+                    state.legacyImageData = skica.imageData;
+                    state.elements = [];
+                    redrawBg();
                     const img = new Image();
                     img.onload = () => {
                         if (!drawCtx) return;
                         drawCtx.drawImage(img, 0, 0, drawCanvas.clientWidth, drawCanvas.clientHeight);
-                        // Legacy: bitmapa ostaje na platnu, elements je [] - undo bi
-                        // u Phase 2 obrisao bitmapu, Phase 4 popravlja kroz migraciju.
                         pushUndoSnapshot();
                         updateSpremiButton();
                     };
                     img.src = skica.imageData;
+                    showLegacyWarning();
                 } else {
+                    // skica ne postoji - tretiraj kao nov
                     state.editingSkicaId = null;
+                    redrawBg();
                     renderElements();
                     pushUndoSnapshot();
                 }
             } else {
-                // Nova skica: prazan elements + baseline.
+                redrawBg();
                 renderElements();
                 pushUndoSnapshot();
             }
         });
+    }
+
+    function syncModeToggleUI() {
+        document.querySelectorAll('.aufmass-mode-btn').forEach(b => {
+            b.classList.toggle('active', b.getAttribute('data-mode') === state.mode);
+        });
+        const photoLoad = document.getElementById('aufmass-photo-load');
+        if (photoLoad) photoLoad.classList.toggle('hidden', state.mode !== 'foto');
+    }
+
+    function loadFotoFromDataUrl(dataUrl) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                state.bgImage = img;
+                state.fotoDataUrl = dataUrl;
+                resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = dataUrl;
+        });
+    }
+
+    function showLegacyWarning() {
+        const ov = document.getElementById('aufmass-overlay');
+        if (ov) ov.classList.add('aufmass-legacy');
+        const banner = document.getElementById('aufmass-legacy-banner');
+        if (banner) banner.classList.remove('hidden');
+    }
+
+    function hideLegacyWarning() {
+        const ov = document.getElementById('aufmass-overlay');
+        if (ov) ov.classList.remove('aufmass-legacy');
+        const banner = document.getElementById('aufmass-legacy-banner');
+        if (banner) banner.classList.add('hidden');
     }
 
     function close() {
@@ -149,11 +213,15 @@
         if (ov) ov.remove();
         state.open = false;
         state.bgImage = null;
+        state.fotoDataUrl = null;
+        state.legacyMode = false;
+        state.legacyImageData = null;
         state.isDrawing = false;
         state.lineBaseSnapshot = null;
         state.editingSkicaId = null;
         state.isDirty = false;
         state.elements = [];
+        imageCache.clear();
         state.currentElement = null;
         state.elementsHistory = [];
         bgCanvas = drawCanvas = bgCtx = drawCtx = null;
@@ -177,6 +245,10 @@
                 <button type="button" class="icon-btn" id="aufmass-close" aria-label="Zatvori">✕</button>
                 <h2 class="aufmass-title">${escapeHtml(state.narudzbaNaziv)}</h2>
                 <button type="button" class="btn btn-secondary aufmass-save" id="aufmass-save" disabled>Spremi</button>
+            </div>
+
+            <div class="aufmass-legacy-banner hidden" id="aufmass-legacy-banner" role="status">
+                ⚠️ Stara skica - nije moguće uređivanje. Pritisni Spremi za pretvaranje u novi format.
             </div>
 
             <div class="aufmass-tools">
@@ -390,25 +462,48 @@
         if (!file) return;
 
         const proceed = () => {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
+            compressFotoFile(file).then(dataUrl => {
                 const img = new Image();
                 img.onload = () => {
                     state.bgImage = img;
+                    state.fotoDataUrl = dataUrl;   // Phase 4: spremi za save
                     clearDrawingAndStack();
                     redrawBg();
                 };
                 img.onerror = () => console.error('Aufmass: nije moguće učitati sliku');
-                img.src = ev.target.result;
-            };
-            reader.onerror = () => console.error('Aufmass: čitanje datoteke nije uspjelo');
-            reader.readAsDataURL(file);
+                img.src = dataUrl;
+            }).catch(err => console.error('Aufmass: kompresija fotografije:', err));
         };
 
         if (hasUnsavedDrawing()) {
             if (!window.confirm('Imate nespremljen crtež. Učitavanje nove fotografije će ga izbrisati. Nastaviti?')) return;
         }
         proceed();
+    }
+
+    // Phase 4: kompresija foto datoteke (max 800px, JPEG 0.7)
+    function compressFotoFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const img = new Image();
+                img.onload = () => {
+                    const MAX = 800;
+                    const scale = Math.min(MAX / img.width, MAX / img.height, 1);
+                    const w = Math.round(img.width * scale);
+                    const h = Math.round(img.height * scale);
+                    const c = document.createElement('canvas');
+                    c.width = w;
+                    c.height = h;
+                    c.getContext('2d').drawImage(img, 0, 0, w, h);
+                    resolve(c.toDataURL('image/jpeg', 0.7));
+                };
+                img.onerror = () => reject(new Error('Image load failed'));
+                img.src = ev.target.result;
+            };
+            reader.onerror = () => reject(new Error('Read failed'));
+            reader.readAsDataURL(file);
+        });
     }
 
     function clearDrawingAndStack() {
@@ -759,38 +854,60 @@
         const narudzbaId = state.narudzbaId;
         const editingId = state.editingSkicaId;
 
-        // Stopi pozadinu i crtež u jednu sliku, skaliranu (max 800px) i JPEG-kompresiranu
-        // kako bi se izbjegla localStorage quota.
-        let imageData;
+        // Phase 4: thumbnail (200px max, JPEG 0.6) - bg + draw merged.
+        let thumbnail;
         try {
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = bgCanvas.width;
-            tempCanvas.height = bgCanvas.height;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.drawImage(bgCanvas, 0, 0);
-            tempCtx.drawImage(drawCanvas, 0, 0);
+            const merged = document.createElement('canvas');
+            merged.width = drawCanvas.width;
+            merged.height = drawCanvas.height;
+            const mctx = merged.getContext('2d');
+            mctx.drawImage(bgCanvas, 0, 0);
+            mctx.drawImage(drawCanvas, 0, 0);
 
-            const MAX = 800;
-            const scale = Math.min(MAX / tempCanvas.width, MAX / tempCanvas.height, 1);
-            const outW = Math.round(tempCanvas.width * scale);
-            const outH = Math.round(tempCanvas.height * scale);
-            const outCanvas = document.createElement('canvas');
-            outCanvas.width = outW;
-            outCanvas.height = outH;
-            const outCtx = outCanvas.getContext('2d');
-            outCtx.drawImage(tempCanvas, 0, 0, outW, outH);
-            imageData = outCanvas.toDataURL('image/jpeg', 0.7);
+            const THUMB_MAX = 200;
+            const tscale = Math.min(THUMB_MAX / merged.width, THUMB_MAX / merged.height, 1);
+            const tw = Math.max(1, Math.round(merged.width * tscale));
+            const th = Math.max(1, Math.round(merged.height * tscale));
+            const thumbCanvas = document.createElement('canvas');
+            thumbCanvas.width = tw;
+            thumbCanvas.height = th;
+            thumbCanvas.getContext('2d').drawImage(merged, 0, 0, tw, th);
+            thumbnail = thumbCanvas.toDataURL('image/jpeg', 0.6);
         } catch (err) {
-            console.error('Aufmass: spajanje slojeva nije uspjelo:', err);
-            closeSavePopup();
-            return;
+            console.error('Aufmass: thumbnail nije uspio:', err);
+            thumbnail = null;
         }
 
-        // Spremi direktno u narudžbu kroz Storage.
-        console.log('commitSave start, narudzbaId:', state.narudzbaId);
+        // Phase 4: za migraciju legacy skice - originalna bitmapa postaje
+        // jedan legacy-bitmap element. Novi elementi (ako ih je korisnik dodao
+        // nakon migracije) idu iza njega.
+        let elementsToSave = state.elements.slice();
+        if (state.legacyMode && state.legacyImageData) {
+            elementsToSave = [{
+                id: generateElementId(),
+                type: 'legacy-bitmap',
+                imageData: state.legacyImageData,
+                x: 0,
+                y: 0,
+                w: drawCanvas.clientWidth,
+                h: drawCanvas.clientHeight
+            }].concat(state.elements);
+        }
+
+        const skicaData = {
+            id: editingId || window.App.Storage.generateId(),
+            naziv,
+            datum: new Date().toISOString(),
+            elements: elementsToSave,
+            bgMode: state.mode,
+            bgFoto: state.mode === 'foto' ? state.fotoDataUrl : null,
+            canvasW: drawCanvas.width,
+            canvasH: drawCanvas.height,
+            thumbnail: thumbnail
+        };
+
         const sve = window.App.Storage.load('narudzbe', []);
         const idx = sve.findIndex(n => n.id === narudzbaId);
-        console.log('narudzbe geladen:', sve.length, 'gefunden:', idx);
         if (idx === -1) {
             closeSavePopup();
             return;
@@ -802,29 +919,13 @@
         if (editingId) {
             const sIdx = sve[idx].aufmass_skice.findIndex(s => s.id === editingId);
             if (sIdx !== -1) {
-                sve[idx].aufmass_skice[sIdx] = Object.assign({}, sve[idx].aufmass_skice[sIdx], {
-                    naziv,
-                    imageData,
-                    datum: new Date().toISOString()
-                });
+                sve[idx].aufmass_skice[sIdx] = skicaData;
             } else {
-                sve[idx].aufmass_skice.push({
-                    id: window.App.Storage.generateId(),
-                    naziv,
-                    imageData,
-                    datum: new Date().toISOString()
-                });
+                sve[idx].aufmass_skice.push(skicaData);
             }
         } else {
-            sve[idx].aufmass_skice.push({
-                id: window.App.Storage.generateId(),
-                naziv,
-                imageData,
-                datum: new Date().toISOString()
-            });
+            sve[idx].aufmass_skice.push(skicaData);
         }
-
-        console.log('aufmass_skice nach save:', sve[idx].aufmass_skice.length);
 
         // Upozorenje ako je localStorage skoro pun (> 4MB)
         try {
@@ -835,10 +936,10 @@
         } catch (e) {}
 
         window.App.Storage.save('narudzbe', sve);
-        console.log('Storage.save fertig');
 
         // Označi kao čisto i zatvori overlay bez confirm-a.
         state.isDirty = false;
+        state.legacyMode = false;
         closeSavePopup();
         close();
 
@@ -1006,6 +1107,20 @@
             drawCtx.fillText(el.text || '', el.x, el.y);
         } else if (el.type === 'kota') {
             drawKota(drawCtx, el.x1, el.y1, el.x2, el.y2, el.text, el.color, el.size);
+        } else if (el.type === 'legacy-bitmap') {
+            // Phase 4: stara skica je sad jedan element. Image se kešira po el.id.
+            let img = imageCache.get(el.id);
+            if (!img) {
+                img = new Image();
+                img.onload = () => renderElements();
+                img.src = el.imageData;
+                imageCache.set(el.id, img);
+            }
+            if (img.complete && img.naturalWidth > 0) {
+                drawCtx.drawImage(img, el.x || 0, el.y || 0,
+                    el.w || drawCanvas.clientWidth,
+                    el.h || drawCanvas.clientHeight);
+            }
         }
 
         drawCtx.restore();

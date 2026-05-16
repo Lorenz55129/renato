@@ -403,11 +403,15 @@
                 ${(n.aufmass_skice || []).length === 0
                     ? `<p class="placeholder-hint">Nema spremljenih skica.</p>`
                     : `<div class="photo-grid skica-grid">
-                        ${(n.aufmass_skice || []).map(s => `
+                        ${(n.aufmass_skice || []).map(s => {
+                            const thumbSrc = s.thumbnail || s.imageData || '';
+                            return `
                             <div class="skica-cell">
                                 <button type="button" class="photo-thumb skica-thumb" data-skica-id="${escapeHtml(s.id)}"
                                         aria-label="Otvori skicu: ${escapeHtml(s.naziv || '')}">
-                                    <img src="${s.imageData}" alt="" loading="lazy">
+                                    ${thumbSrc
+                                        ? `<img src="${thumbSrc}" alt="" loading="lazy">`
+                                        : `<span class="skica-no-preview">Nema pregleda</span>`}
                                 </button>
                                 <div class="skica-naziv">${escapeHtml(s.naziv || 'Bez naziva')}</div>
                                 <div class="skica-datum">${escapeHtml(formatSkicaDatum(s.datum))}</div>
@@ -415,7 +419,7 @@
                                     ✏️ Uredi
                                 </button>
                             </div>
-                        `).join('')}
+                        `;}).join('')}
                        </div>`}
                 <button type="button" class="btn btn-secondary btn-block" id="btn-aufmass">Nova skica</button>
             </section>
@@ -1027,6 +1031,10 @@
 
     function openSkicaViewer(skica) {
         closeSkicaViewer();
+        // Phase 4: novi format ima samo thumbnail (200px); legacy ima imageData.
+        // Viewer prikazuje što god je dostupno - za detaljno pregledavanje
+        // korisnik koristi gumb "Uredi".
+        const src = skica.thumbnail || skica.imageData || '';
         const overlay = document.createElement('div');
         overlay.className = 'photo-viewer';
         overlay.id = 'skica-viewer-overlay';
@@ -1035,7 +1043,9 @@
         overlay.setAttribute('aria-label', `Skica: ${skica.naziv || ''}`);
         overlay.innerHTML = `
             <button type="button" class="icon-btn photo-viewer-close" id="skica-viewer-close" aria-label="Zatvori">✕</button>
-            <img class="photo-viewer-image" src="${skica.imageData}" alt="${escapeHtml(skica.naziv || '')}">
+            ${src
+                ? `<img class="photo-viewer-image" src="${src}" alt="${escapeHtml(skica.naziv || '')}">`
+                : `<div class="skica-viewer-empty">Nema pregleda. Otvori s "Uredi" za detalje.</div>`}
         `;
         document.body.appendChild(overlay);
         document.body.classList.add('overlay-open');
