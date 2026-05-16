@@ -44,7 +44,10 @@
         kotaEndY: 0,
         editingSkicaId: null,               // 7c-3: id postojeće skice u edit modu
         isDirty: false,                     // 7c-3: postoji li nespremljena promjena
-        undoStack: []                       // dataURL-ovi nakon svakog poteza, max UNDO_MAX
+        undoStack: [],                      // dataURL-ovi nakon svakog poteza, max UNDO_MAX
+        elements: [],                       // Phase 1: objektni model elemenata na platnu
+        currentElement: null,               // Phase 1: element koji se trenutno crta (stift)
+        elementsHistory: []                 // Phase 1: paralelna povijest za undo
     };
 
     let bgCanvas = null;
@@ -61,6 +64,10 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
+    }
+
+    function generateElementId() {
+        return 'el-' + Math.random().toString(36).slice(2, 9);
     }
 
     function hasAnyOverlay() {
@@ -89,6 +96,9 @@
         state.editingSkicaId = skicaId || null;
         state.isDirty = false;
         state.undoStack = [];
+        state.elements = [];
+        state.currentElement = null;
+        state.elementsHistory = [];
 
         buildOverlay();
         state.open = true;
@@ -134,6 +144,9 @@
         state.editingSkicaId = null;
         state.isDirty = false;
         state.undoStack = [];
+        state.elements = [];
+        state.currentElement = null;
+        state.elementsHistory = [];
         bgCanvas = drawCanvas = bgCtx = drawCtx = null;
 
         window.removeEventListener('resize', onResize);
@@ -398,6 +411,9 @@
             drawCtx.clearRect(0, 0, drawCanvas.clientWidth, drawCanvas.clientHeight);
         }
         state.undoStack = [];
+        state.elements = [];
+        state.currentElement = null;
+        state.elementsHistory = [];
         state.isDirty = false;
         state.lineBaseSnapshot = null;
         closeKotaPopup();
@@ -534,6 +550,17 @@
         drawCtx.moveTo(pos.x, pos.y);
         drawCtx.lineTo(pos.x + 0.1, pos.y + 0.1);
         drawCtx.stroke();
+
+        // Phase 1: paralelno tracking - samo za olovku (radirka ide u Phase 3)
+        if (state.tool === 'pen') {
+            state.currentElement = {
+                id: generateElementId(),
+                type: 'stift',
+                color: state.color,
+                size: state.strokeSize,
+                points: [{ x: pos.x, y: pos.y }]
+            };
+        }
     }
 
     function moveStroke(e) {
@@ -572,6 +599,11 @@
         drawCtx.stroke();
         state.lastX = pos.x;
         state.lastY = pos.y;
+
+        // Phase 1: dodaj točku u trenutni element (samo olovka)
+        if (state.tool === 'pen' && state.currentElement) {
+            state.currentElement.points.push({ x: pos.x, y: pos.y });
+        }
     }
 
     function endStroke(e) {
@@ -615,6 +647,26 @@
                 drawCtx.stroke();
             }
             state.lineBaseSnapshot = null;
+
+            // Phase 1: tracking
+            state.elements.push({
+                id: generateElementId(),
+                type: 'linija',
+                color: state.color,
+                size: state.strokeSize,
+                points: [
+                    { x: state.lineStartX, y: state.lineStartY },
+                    { x: pos.x, y: pos.y }
+                ]
+            });
+            console.log('elements:', state.elements.length, JSON.parse(JSON.stringify(state.elements)));
+        }
+
+        // Phase 1: stift - element je već izgrađen u start/move, sada ga commit-aj.
+        if (state.tool === 'pen' && state.currentElement) {
+            state.elements.push(state.currentElement);
+            state.currentElement = null;
+            console.log('elements:', state.elements.length, JSON.parse(JSON.stringify(state.elements)));
         }
 
         // Uvijek vrati composite na default - kritično nakon radirke.
@@ -633,6 +685,12 @@
             if (state.undoStack.length > UNDO_MAX) {
                 state.undoStack.shift();
             }
+            // Phase 1: paralelno čuvaj snapshot elemenata
+            state.elementsHistory = state.elementsHistory || [];
+            state.elementsHistory.push(state.elements.slice());
+            if (state.elementsHistory.length > UNDO_MAX) {
+                state.elementsHistory.shift();
+            }
             updateUndoButton();
         } catch (err) {
             console.error('Aufmass: undo snapshot nije moguć:', err);
@@ -643,6 +701,10 @@
         if (state.undoStack.length === 0) return;
 
         state.undoStack.pop();
+        // Phase 1: paralelno popni elementsHistory
+        if (state.elementsHistory && state.elementsHistory.length > 0) {
+            state.elementsHistory.pop();
+        }
 
         if (drawCtx) {
             drawCtx.clearRect(0, 0, drawCanvas.clientWidth, drawCanvas.clientHeight);
@@ -657,6 +719,13 @@
                 }
             };
             img.src = data;
+        }
+
+        // Phase 1: restore elements iz vrha povijesti
+        if (state.elementsHistory && state.elementsHistory.length > 0) {
+            state.elements = state.elementsHistory[state.elementsHistory.length - 1].slice();
+        } else {
+            state.elements = [];
         }
 
         updateUndoButton();
@@ -914,6 +983,17 @@
         const text = input.value;
         if (text && text.trim()) {
             drawText(text, state.textTapX, state.textTapY);
+            // Phase 1: tracking
+            state.elements.push({
+                id: generateElementId(),
+                type: 'tekst',
+                color: state.color,
+                size: state.strokeSize,
+                x: state.textTapX,
+                y: state.textTapY,
+                text: text
+            });
+            console.log('elements:', state.elements.length, JSON.parse(JSON.stringify(state.elements)));
             pushUndoSnapshot();
             state.isDirty = true;
             updateSpremiButton();
@@ -1060,6 +1140,19 @@
             drawKota(drawCtx, state.lineStartX, state.lineStartY, state.kotaEndX, state.kotaEndY, text);
         }
         state.lineBaseSnapshot = null;
+        // Phase 1: tracking
+        state.elements.push({
+            id: generateElementId(),
+            type: 'kota',
+            color: state.color,
+            size: state.strokeSize,
+            x1: state.lineStartX,
+            y1: state.lineStartY,
+            x2: state.kotaEndX,
+            y2: state.kotaEndY,
+            text: text
+        });
+        console.log('elements:', state.elements.length, JSON.parse(JSON.stringify(state.elements)));
         closeKotaPopup();
         pushUndoSnapshot();
         state.isDirty = true;
