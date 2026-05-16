@@ -394,6 +394,14 @@
                 <div class="photo-status" id="photo-status" aria-live="polite"></div>
             </section>
 
+            <section class="detail-section">
+                <h4 class="detail-section-title">Skice <span class="detail-section-count">(${(n.aufmass_skice || []).length})</span></h4>
+                ${(n.aufmass_skice || []).length === 0
+                    ? `<p class="placeholder-hint">Nema spremljenih skica.</p>`
+                    : ''}
+                <button type="button" class="btn btn-secondary btn-block" id="btn-aufmass">Otvori ploču za skiciranje</button>
+            </section>
+
             <div class="detail-actions">
                 ${sljedeci
                     ? `<button type="button" class="btn btn-primary btn-block" id="btn-status">
@@ -412,6 +420,15 @@
 
         const btnStatus = document.getElementById('btn-status');
         if (btnStatus) btnStatus.addEventListener('click', () => handleAdvanceStatus(n));
+
+        const btnAufmass = document.getElementById('btn-aufmass');
+        if (btnAufmass) {
+            btnAufmass.addEventListener('click', () => {
+                if (window.App.Aufmass && typeof window.App.Aufmass.openForNarudzba === 'function') {
+                    window.App.Aufmass.openForNarudzba(n.id);
+                }
+            });
+        }
 
         // Mjere - auto-save na blur
         container.querySelectorAll('[data-field]').forEach(inp => {
