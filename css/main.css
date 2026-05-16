@@ -2954,6 +2954,104 @@ body.overlay-open {
     background-color: var(--color-cream);
 }
 
+/* ============================================
+   Dashboard (Početna)
+   ============================================ */
+.dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.dashboard-stat {
+    background-color: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 14px 12px;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 80px;
+}
+
+.dashboard-stat-value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--color-brown);
+    line-height: 1.1;
+}
+
+.dashboard-stat-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-top: 4px;
+    line-height: 1.2;
+}
+
+.dashboard-section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-brown);
+    margin: 8px 0 8px 4px;
+}
+
+.dashboard-termin-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0;
+    margin: 0;
+}
+
+.dashboard-termin-item {
+    background-color: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    min-height: var(--touch-target);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.dashboard-termin-time {
+    font-weight: 700;
+    color: var(--color-gold-dark);
+    font-size: 0.9375rem;
+    min-width: 48px;
+    flex-shrink: 0;
+}
+
+.dashboard-termin-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.dashboard-termin-naziv {
+    font-weight: 600;
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dashboard-termin-kupac {
+    color: var(--color-text-muted);
+    font-size: 0.8125rem;
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* ----- Veći ekrani (tablet i šire) ----- */
 @media (min-width: 768px) {
     .app-main {
@@ -2976,5 +3074,9 @@ body.overlay-open {
 
     .kategorija-grid {
         grid-template-columns: repeat(3, 1fr);
+    }
+
+    .dashboard-stats {
+        grid-template-columns: repeat(4, 1fr);
     }
 }

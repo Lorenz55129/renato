@@ -17,12 +17,31 @@
         <!-- Dashboard modul -->
         <section class="module" id="module-dashboard" data-module="dashboard">
             <div class="module-header">
-                <h2>Dashboard</h2>
+                <h2>Početna</h2>
             </div>
-            <div class="module-content">
-                <div class="placeholder-card">
-                    <p>Dobrodošli u Renato Stolarija aplikaciju.</p>
-                    <p class="placeholder-hint">Ovdje će se prikazati pregled posla.</p>
+            <div class="module-content" id="dashboard-content">
+                <div class="dashboard-stats">
+                    <div class="dashboard-stat">
+                        <div class="dashboard-stat-value" id="ds-otvorene">0</div>
+                        <div class="dashboard-stat-label">Otvorene narudžbe</div>
+                    </div>
+                    <div class="dashboard-stat">
+                        <div class="dashboard-stat-value" id="ds-isporuka">0</div>
+                        <div class="dashboard-stat-label">Isporuka ovaj tjedan</div>
+                    </div>
+                    <div class="dashboard-stat">
+                        <div class="dashboard-stat-value" id="ds-poslane">0</div>
+                        <div class="dashboard-stat-label">Poslane ponude</div>
+                    </div>
+                    <div class="dashboard-stat">
+                        <div class="dashboard-stat-value" id="ds-termini-broj">0</div>
+                        <div class="dashboard-stat-label">Današnji termini</div>
+                    </div>
+                </div>
+
+                <h3 class="dashboard-section-title">Današnji termini</h3>
+                <div id="ds-termini-list">
+                    <p class="placeholder-hint">Nema termina za danas.</p>
                 </div>
             </div>
         </section>
