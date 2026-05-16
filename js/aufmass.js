@@ -48,7 +48,8 @@
         isDirty: false,                     // 7c-3: postoji li nespremljena promjena
         elements: [],                       // Phase 2: objektni model - jedini izvor istine za crtež
         currentElement: null,               // build buffer za stift tijekom poteza
-        elementsHistory: []                 // undo povijest (snapshot-i state.elements)
+        elementsHistory: [],                // undo povijest (snapshot-i state.elements)
+        selectedElementId: null             // Phase 3: trenutno odabrani element (alat "odabir")
     };
 
     let bgCanvas = null;
@@ -107,6 +108,7 @@
         imageCache.clear();
         state.currentElement = null;
         state.elementsHistory = [];
+        state.selectedElementId = null;
 
         buildOverlay();
         state.open = true;
@@ -224,6 +226,7 @@
         imageCache.clear();
         state.currentElement = null;
         state.elementsHistory = [];
+        state.selectedElementId = null;
         bgCanvas = drawCanvas = bgCtx = drawCtx = null;
 
         window.removeEventListener('resize', onResize);
@@ -261,6 +264,8 @@
 
                 <span class="aufmass-tools-sep" aria-hidden="true"></span>
 
+                <button type="button" class="aufmass-tool-btn aufmass-tool-btn-line ${state.tool === 'odabir' ? 'active' : ''}"
+                        data-tool="odabir" aria-label="Odabir">👆 Odabir</button>
                 <button type="button" class="aufmass-tool-btn ${state.tool === 'pen' ? 'active' : ''}"
                         data-tool="pen" aria-label="Olovka">✏️</button>
                 <button type="button" class="aufmass-tool-btn aufmass-tool-btn-line ${state.tool === 'linija' ? 'active' : ''}"
@@ -307,6 +312,13 @@
             <div class="aufmass-canvas-wrap" id="aufmass-canvas-wrap">
                 <canvas class="aufmass-canvas aufmass-canvas-bg" id="aufmass-bg"></canvas>
                 <canvas class="aufmass-canvas aufmass-canvas-draw" id="aufmass-draw"></canvas>
+
+                <div class="aufmass-selection-bar hidden" id="aufmass-selection-bar" role="toolbar" aria-label="Akcije za odabrani element">
+                    <span class="aufmass-selection-label">Odabrano: <span id="aufmass-sel-type"></span></span>
+                    <button type="button" class="btn btn-secondary aufmass-sel-btn hidden" id="aufmass-edit-text">✏️ Promijeni tekst</button>
+                    <button type="button" class="btn btn-danger aufmass-sel-btn" id="aufmass-delete-element">🗑 Obriši</button>
+                    <button type="button" class="icon-btn aufmass-sel-close" id="aufmass-deselect" aria-label="Odznači">✕</button>
+                </div>
             </div>
         `;
 
@@ -340,6 +352,11 @@
 
         document.getElementById('aufmass-undo').addEventListener('click', undo);
         document.getElementById('aufmass-clear').addEventListener('click', handleClear);
+
+        // Phase 3: selection bar
+        document.getElementById('aufmass-deselect').addEventListener('click', deselectElement);
+        document.getElementById('aufmass-delete-element').addEventListener('click', deleteSelectedElement);
+        document.getElementById('aufmass-edit-text').addEventListener('click', openEditTextPopup);
     }
 
     // ----- Canvas setup (DPR-aware) -----
@@ -432,7 +449,15 @@
     }
 
     function setTool(tool) {
-        if (tool !== 'pen' && tool !== 'linija' && tool !== 'tekst' && tool !== 'kota') return;
+        if (tool !== 'pen' && tool !== 'linija' && tool !== 'tekst' && tool !== 'kota' && tool !== 'odabir') return;
+
+        // Phase 3: prelaskom s "odabir" na drugi alat odznači element + sakrij bar.
+        if (state.tool === 'odabir' && tool !== 'odabir' && state.selectedElementId) {
+            state.selectedElementId = null;
+            hideSelectionActions();
+            renderElements();
+        }
+
         state.tool = tool;
         document.querySelectorAll('.aufmass-tool-btn[data-tool]').forEach(b => {
             b.classList.toggle('active', b.getAttribute('data-tool') === tool);
@@ -512,8 +537,11 @@
         state.elementsHistory = [];
         state.isDirty = false;
         state.lineBaseSnapshot = null;
+        state.selectedElementId = null;
         closeKotaPopup();
         closeTextPopup();
+        closeEditTextPopup();
+        hideSelectionActions();
         renderElements();
         pushUndoSnapshot();  // baseline za buduće undo
         updateUndoButton();
@@ -589,8 +617,30 @@
         // Ignoriraj multi-touch - obrađujemo samo jedan prst.
         if (e.touches && e.touches.length > 1) return;
 
-        state.isDrawing = true;
         const pos = getPos(e);
+
+        // Phase 3: odabir - hit test po elementima od vrha prema dnu.
+        // Ne ulazimo u "drawing" stanje (isDrawing ostaje false), pa move/end
+        // strokes prirodno preskaču odabir.
+        if (state.tool === 'odabir') {
+            for (let i = state.elements.length - 1; i >= 0; i--) {
+                const el = state.elements[i];
+                if (el.type === 'legacy-bitmap') continue;
+                const bbox = getBBox(el);
+                if (bbox && pointInBBox(pos.x, pos.y, bbox)) {
+                    state.selectedElementId = el.id;
+                    renderElements();
+                    showSelectionActions(el);
+                    return;
+                }
+            }
+            state.selectedElementId = null;
+            renderElements();
+            hideSelectionActions();
+            return;
+        }
+
+        state.isDrawing = true;
         state.lastX = pos.x;
         state.lastY = pos.y;
 
@@ -763,8 +813,14 @@
         state.elementsHistory.pop();
         const prev = state.elementsHistory[state.elementsHistory.length - 1] || [];
         state.elements = prev.slice();
-        renderElements();
 
+        // Phase 3: ako odabrani element više ne postoji nakon undo-a, makni odabir.
+        if (state.selectedElementId && !state.elements.find(e => e.id === state.selectedElementId)) {
+            state.selectedElementId = null;
+            hideSelectionActions();
+        }
+
+        renderElements();
         updateUndoButton();
         updateSpremiButton();
     }
@@ -1066,6 +1122,177 @@
         for (let i = 0; i < state.elements.length; i++) {
             renderElement(state.elements[i]);
         }
+        // Phase 3: hervorhebung odabranog elementa (plavi isprekidani okvir)
+        if (state.selectedElementId) {
+            const sel = state.elements.find(e => e.id === state.selectedElementId);
+            if (sel) {
+                const bbox = getBBox(sel);
+                if (bbox) {
+                    drawCtx.save();
+                    drawCtx.strokeStyle = '#2B6CB0';
+                    drawCtx.lineWidth = 2;
+                    drawCtx.setLineDash([6, 4]);
+                    drawCtx.strokeRect(bbox.x, bbox.y, bbox.w, bbox.h);
+                    drawCtx.restore();
+                }
+            }
+        }
+    }
+
+    // ----- Phase 3: bbox + hit test + odabir akcije -----
+    function getBBox(el) {
+        if (!el) return null;
+        const lw = STROKE_SIZES[el.size] || 5;
+        const pad = Math.max(lw, 10);  // minimum 10px za touch komfor
+
+        if (el.type === 'stift' || el.type === 'linija') {
+            const pts = el.points || [];
+            if (pts.length === 0) return null;
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (const p of pts) {
+                if (p.x < minX) minX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y > maxY) maxY = p.y;
+            }
+            return {
+                x: minX - pad,
+                y: minY - pad,
+                w: (maxX - minX) + 2 * pad,
+                h: (maxY - minY) + 2 * pad
+            };
+        }
+        if (el.type === 'tekst') {
+            const size = TEXT_SIZES[el.size] || 22;
+            const txt = el.text || '';
+            const w = Math.max(txt.length * size * 0.6, size * 0.6);
+            return {
+                x: el.x - pad,
+                y: el.y - pad,
+                w: w + 2 * pad,
+                h: size + 2 * pad
+            };
+        }
+        if (el.type === 'kota') {
+            const minX = Math.min(el.x1, el.x2);
+            const minY = Math.min(el.y1, el.y2);
+            const maxX = Math.max(el.x1, el.x2);
+            const maxY = Math.max(el.y1, el.y2);
+            return {
+                x: minX - pad,
+                y: minY - 20,
+                w: (maxX - minX) + 2 * pad,
+                h: (maxY - minY) + 40
+            };
+        }
+        if (el.type === 'legacy-bitmap') {
+            return { x: el.x || 0, y: el.y || 0, w: el.w || 0, h: el.h || 0 };
+        }
+        return null;
+    }
+
+    function pointInBBox(px, py, bbox) {
+        return px >= bbox.x && px <= bbox.x + bbox.w &&
+               py >= bbox.y && py <= bbox.y + bbox.h;
+    }
+
+    function showSelectionActions(el) {
+        const bar = document.getElementById('aufmass-selection-bar');
+        if (!bar) return;
+        const typeEl = document.getElementById('aufmass-sel-type');
+        const editBtn = document.getElementById('aufmass-edit-text');
+        const labels = { stift: 'Olovka', linija: 'Linija', tekst: 'Tekst', kota: 'Kota' };
+        if (typeEl) typeEl.textContent = labels[el.type] || el.type;
+        if (editBtn) editBtn.classList.toggle('hidden', el.type !== 'tekst' && el.type !== 'kota');
+        bar.classList.remove('hidden');
+    }
+
+    function hideSelectionActions() {
+        const bar = document.getElementById('aufmass-selection-bar');
+        if (bar) bar.classList.add('hidden');
+    }
+
+    function deselectElement() {
+        state.selectedElementId = null;
+        hideSelectionActions();
+        renderElements();
+    }
+
+    function deleteSelectedElement() {
+        if (!state.selectedElementId) return;
+        state.elements = state.elements.filter(e => e.id !== state.selectedElementId);
+        state.selectedElementId = null;
+        renderElements();
+        hideSelectionActions();
+        pushUndoSnapshot();
+        state.isDirty = true;
+        updateSpremiButton();
+    }
+
+    function openEditTextPopup() {
+        if (!state.selectedElementId) return;
+        const el = state.elements.find(e => e.id === state.selectedElementId);
+        if (!el || (el.type !== 'tekst' && el.type !== 'kota')) return;
+
+        closeEditTextPopup();
+        const wrap = document.getElementById('aufmass-canvas-wrap');
+        if (!wrap) return;
+
+        const popup = document.createElement('div');
+        popup.className = 'aufmass-text-popup aufmass-edit-text-popup';
+        popup.id = 'aufmass-edit-text-popup';
+        popup.setAttribute('role', 'dialog');
+        popup.setAttribute('aria-modal', 'true');
+        popup.setAttribute('aria-label', 'Promijeni tekst');
+        popup.innerHTML = `
+            <label class="aufmass-kota-label" for="aufmass-edit-text-input">Tekst:</label>
+            <input type="text" class="aufmass-text-input" id="aufmass-edit-text-input"
+                   value="${escapeHtml(el.text || '')}" autocomplete="off" autocapitalize="sentences">
+            <button type="button" class="aufmass-text-ok" id="aufmass-edit-text-ok">OK</button>
+            <button type="button" class="aufmass-text-cancel" id="aufmass-edit-text-cancel" aria-label="Odustani">✕</button>
+        `;
+        wrap.appendChild(popup);
+
+        const input = document.getElementById('aufmass-edit-text-input');
+        setTimeout(() => {
+            if (!input) return;
+            input.focus();
+            input.select();
+        }, 30);
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                commitEditText();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                closeEditTextPopup();
+            }
+        });
+
+        document.getElementById('aufmass-edit-text-ok').addEventListener('click', commitEditText);
+        document.getElementById('aufmass-edit-text-cancel').addEventListener('click', closeEditTextPopup);
+    }
+
+    function commitEditText() {
+        const input = document.getElementById('aufmass-edit-text-input');
+        if (!input) { closeEditTextPopup(); return; }
+        const newText = input.value;
+        const el = state.elements.find(e => e.id === state.selectedElementId);
+        if (el && (el.type === 'tekst' || el.type === 'kota')) {
+            el.text = newText;
+            renderElements();
+            pushUndoSnapshot();
+            state.isDirty = true;
+            updateSpremiButton();
+        }
+        closeEditTextPopup();
+    }
+
+    function closeEditTextPopup() {
+        const p = document.getElementById('aufmass-edit-text-popup');
+        if (p) p.remove();
     }
 
     function renderElement(el) {
@@ -1287,8 +1514,16 @@
                 cancelKota();
                 return;
             }
+            if (document.getElementById('aufmass-edit-text-popup')) {
+                closeEditTextPopup();
+                return;
+            }
             if (document.getElementById('aufmass-text-popup')) {
                 closeTextPopup();
+                return;
+            }
+            if (state.selectedElementId) {
+                deselectElement();
                 return;
             }
             if (state.open) close();

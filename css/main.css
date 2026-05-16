@@ -2623,6 +2623,72 @@ body.overlay-open {
     pointer-events: none;
 }
 
+/* ----- Aufmaß Phase 3: selection bar ----- */
+.aufmass-selection-bar {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    z-index: 3;
+    background-color: var(--color-brown);
+    color: var(--color-cream);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.aufmass-selection-bar.hidden {
+    display: none;
+}
+
+.aufmass-selection-label {
+    flex: 1 1 100%;
+    font-weight: 600;
+    font-size: 0.8125rem;
+    color: var(--color-cream);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 0 4px;
+}
+
+.aufmass-selection-label > span {
+    color: var(--color-gold);
+}
+
+.aufmass-sel-btn {
+    flex: 1 1 auto;
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 0.875rem;
+}
+
+.aufmass-sel-btn.hidden {
+    display: none;
+}
+
+.aufmass-sel-close {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    color: var(--color-cream);
+    flex-shrink: 0;
+}
+
+.aufmass-sel-close:active {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Edit-text popup u sredini canvas-wrap-a */
+.aufmass-edit-text-popup {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
 /* ----- Skica preview placeholder + viewer fallback ----- */
 .skica-no-preview {
     color: var(--color-text-muted);
