@@ -817,6 +817,17 @@
         // pri sljedećem renderu - ne treba poseban listener.
     }
 
+    // Postavi detaljni prikaz (npr. iz drugog modula, prije Nav.show('narudzbe')).
+    function openDetail(id) {
+        if (!getById(id)) return false;
+        state.view = 'detail';
+        state.selectedId = id;
+        if (window.App.Nav && window.App.Nav.currentModule === 'narudzbe') {
+            renderDetail();
+        }
+        return true;
+    }
+
     // Javni API modula
     window.App = window.App || {};
     window.App.Narudzbe = {
@@ -825,6 +836,7 @@
         getById,
         getByKupacId,
         openForm,
+        openDetail,
         STATUSI,
         STATUS_LABELS
     };
