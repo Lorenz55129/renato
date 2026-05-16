@@ -40,6 +40,8 @@
         lineBaseSnapshot: null,             // 7c-1: ImageData prije linije (za live preview)
         textTapX: 0,                        // 7c-2: pozicija dodira za tekst
         textTapY: 0,
+        kotaEndX: 0,                        // Kota: kraj zadnjeg poteza (za commit nakon popupa)
+        kotaEndY: 0,
         editingSkicaId: null,               // 7c-3: id postojeće skice u edit modu
         isDirty: false,                     // 7c-3: postoji li nespremljena promjena
         undoStack: []                       // dataURL-ovi nakon svakog poteza, max UNDO_MAX
@@ -173,6 +175,8 @@
                         data-tool="linija" aria-label="Linija">╱ Linija</button>
                 <button type="button" class="aufmass-tool-btn aufmass-tool-btn-line ${state.tool === 'tekst' ? 'active' : ''}"
                         data-tool="tekst" aria-label="Tekst">T Tekst</button>
+                <button type="button" class="aufmass-tool-btn aufmass-tool-btn-line ${state.tool === 'kota' ? 'active' : ''}"
+                        data-tool="kota" aria-label="Kota">↔ Kota</button>
 
                 <span class="aufmass-tools-sep" aria-hidden="true"></span>
 
@@ -336,7 +340,7 @@
     }
 
     function setTool(tool) {
-        if (tool !== 'pen' && tool !== 'eraser' && tool !== 'linija' && tool !== 'tekst') return;
+        if (tool !== 'pen' && tool !== 'eraser' && tool !== 'linija' && tool !== 'tekst' && tool !== 'kota') return;
         state.tool = tool;
         document.querySelectorAll('.aufmass-tool-btn[data-tool]').forEach(b => {
             b.classList.toggle('active', b.getAttribute('data-tool') === tool);
@@ -395,6 +399,9 @@
         }
         state.undoStack = [];
         state.isDirty = false;
+        state.lineBaseSnapshot = null;
+        closeKotaPopup();
+        closeTextPopup();
         updateUndoButton();
         updateSpremiButton();
     }
@@ -492,6 +499,20 @@
             return;
         }
 
+        if (state.tool === 'kota') {
+            // Kota: snimi bazu i zapamti početak. drawKota interno upravlja
+            // ctx state-om (save/restore) pa applyStrokeStyle nije potreban.
+            state.lineStartX = pos.x;
+            state.lineStartY = pos.y;
+            try {
+                state.lineBaseSnapshot = drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
+            } catch (err) {
+                state.lineBaseSnapshot = null;
+                console.error('Aufmass: getImageData za kotu nije moguć:', err);
+            }
+            return;
+        }
+
         applyStrokeStyle();
 
         if (state.tool === 'linija') {
@@ -521,6 +542,16 @@
         if (state.tool === 'tekst') return;   // tekst se ne crta pri pomicanju
 
         const pos = getPos(e);
+
+        if (state.tool === 'kota') {
+            if (state.lineBaseSnapshot) {
+                drawCtx.putImageData(state.lineBaseSnapshot, 0, 0);
+            }
+            drawKota(drawCtx, state.lineStartX, state.lineStartY, pos.x, pos.y, '');
+            state.lastX = pos.x;
+            state.lastY = pos.y;
+            return;
+        }
 
         if (state.tool === 'linija') {
             if (state.lineBaseSnapshot) {
@@ -553,6 +584,23 @@
             openTextPopup(state.lastX, state.lastY);
             if (drawCtx) drawCtx.globalCompositeOperation = 'source-over';
             return;
+        }
+
+        if (state.tool === 'kota') {
+            // Finaliziraj preview liniju (bez teksta) i otvori popup za mjeru.
+            const pos = e ? getPos(e) : { x: state.lastX, y: state.lastY };
+            if (state.lineBaseSnapshot && drawCtx) {
+                drawCtx.putImageData(state.lineBaseSnapshot, 0, 0);
+                drawKota(drawCtx, state.lineStartX, state.lineStartY, pos.x, pos.y, '');
+            }
+            state.kotaEndX = pos.x;
+            state.kotaEndY = pos.y;
+            const dx = pos.x - state.lineStartX;
+            const dy = pos.y - state.lineStartY;
+            const pixelDist = Math.round(Math.sqrt(dx * dx + dy * dy));
+            openKotaPopup(state.lineStartX, state.lineStartY, pos.x, pos.y, pixelDist);
+            if (drawCtx) drawCtx.globalCompositeOperation = 'source-over';
+            return;  // commit/cancel u popupu pushaju undo
         }
 
         if (state.tool === 'linija') {
@@ -888,12 +936,163 @@
         drawCtx.fillText(text, x, y);
     }
 
+    // ----- Kota (kotirana linija s strelicama i tekstom mjere) -----
+    function drawArrow(ctx, fromX, fromY, toX, toY, size) {
+        const angle = Math.atan2(toY - fromY, toX - fromX);
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(
+            toX - size * Math.cos(angle - Math.PI / 6),
+            toY - size * Math.sin(angle - Math.PI / 6)
+        );
+        ctx.lineTo(
+            toX - size * Math.cos(angle + Math.PI / 6),
+            toY - size * Math.sin(angle + Math.PI / 6)
+        );
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    function drawKota(ctx, x1, y1, x2, y2, text) {
+        const ARROW = 10;
+
+        ctx.save();
+        ctx.strokeStyle = state.color;
+        ctx.fillStyle = state.color;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.globalCompositeOperation = 'source-over';
+
+        // Hauptlinie
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+
+        // Pfeile an beiden Enden
+        drawArrow(ctx, x2, y2, x1, y1, ARROW);
+        drawArrow(ctx, x1, y1, x2, y2, ARROW);
+
+        if (text) {
+            const mx = (x1 + x2) / 2;
+            const my = (y1 + y2) / 2;
+            const size = TEXT_SIZES[state.strokeSize] || 18;
+            ctx.font = `bold ${size}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            const tw = ctx.measureText(text).width;
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(mx - tw / 2 - 3, my - size - 3, tw + 6, size + 4);
+            ctx.fillStyle = state.color;
+            ctx.fillText(text, mx, my - 2);
+        }
+
+        ctx.restore();
+    }
+
+    function openKotaPopup(x1, y1, x2, y2, pixelDist) {
+        closeKotaPopup();
+        closeTextPopup();
+
+        const wrap = document.getElementById('aufmass-canvas-wrap');
+        if (!wrap) return;
+
+        const popup = document.createElement('div');
+        popup.className = 'aufmass-text-popup aufmass-kota-popup';
+        popup.id = 'aufmass-kota-popup';
+        popup.setAttribute('role', 'dialog');
+        popup.setAttribute('aria-modal', 'true');
+        popup.setAttribute('aria-label', 'Unesi mjeru');
+        popup.innerHTML = `
+            <label class="aufmass-kota-label" for="aufmass-kota-input">Mjera:</label>
+            <input type="text" class="aufmass-text-input aufmass-kota-input" id="aufmass-kota-input"
+                   value="${pixelDist} mm" autocomplete="off">
+            <button type="button" class="aufmass-text-ok" id="aufmass-kota-ok">OK</button>
+            <button type="button" class="aufmass-text-cancel" id="aufmass-kota-cancel" aria-label="Odustani">✕</button>
+        `;
+        wrap.appendChild(popup);
+
+        // Pozicija: sredina kote, s rubnim ispravkom prema wrap-u.
+        const MARGIN = 10;
+        const wrapW = wrap.clientWidth;
+        const wrapH = wrap.clientHeight;
+        const popupW = popup.offsetWidth;
+        const popupH = popup.offsetHeight;
+        const cx = (x1 + x2) / 2;
+        const cy = (y1 + y2) / 2;
+        let left = cx - popupW / 2;
+        let top = cy - popupH / 2;
+        if (left + popupW > wrapW - MARGIN) left = wrapW - popupW - MARGIN;
+        if (top + popupH > wrapH - MARGIN) top = wrapH - popupH - MARGIN;
+        if (left < MARGIN) left = MARGIN;
+        if (top < MARGIN) top = MARGIN;
+        popup.style.left = left + 'px';
+        popup.style.top = top + 'px';
+
+        const input = document.getElementById('aufmass-kota-input');
+        setTimeout(() => {
+            if (!input) return;
+            input.focus();
+            input.select();
+        }, 30);
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                commitKota();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                cancelKota();
+            }
+        });
+
+        document.getElementById('aufmass-kota-ok').addEventListener('click', commitKota);
+        document.getElementById('aufmass-kota-cancel').addEventListener('click', cancelKota);
+    }
+
+    function commitKota() {
+        const input = document.getElementById('aufmass-kota-input');
+        const text = input ? (input.value || '').trim() : '';
+
+        if (drawCtx && state.lineBaseSnapshot) {
+            drawCtx.putImageData(state.lineBaseSnapshot, 0, 0);
+            drawKota(drawCtx, state.lineStartX, state.lineStartY, state.kotaEndX, state.kotaEndY, text);
+        }
+        state.lineBaseSnapshot = null;
+        closeKotaPopup();
+        pushUndoSnapshot();
+        state.isDirty = true;
+        updateSpremiButton();
+    }
+
+    function cancelKota() {
+        if (drawCtx && state.lineBaseSnapshot) {
+            drawCtx.putImageData(state.lineBaseSnapshot, 0, 0);
+        }
+        state.lineBaseSnapshot = null;
+        closeKotaPopup();
+        // Per prompt: undo pushen i nakon abort - snapshot odgovara stanju prije kote.
+        pushUndoSnapshot();
+        state.isDirty = true;
+        updateSpremiButton();
+    }
+
+    function closeKotaPopup() {
+        const p = document.getElementById('aufmass-kota-popup');
+        if (p) p.remove();
+    }
+
     // ----- Init i javni API -----
     function init() {
         document.addEventListener('keydown', (e) => {
             if (e.key !== 'Escape') return;
             if (document.getElementById('aufmass-save-popup')) {
                 closeSavePopup();
+                return;
+            }
+            if (document.getElementById('aufmass-kota-popup')) {
+                cancelKota();
                 return;
             }
             if (document.getElementById('aufmass-text-popup')) {

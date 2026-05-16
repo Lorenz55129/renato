@@ -2719,6 +2719,23 @@ body.overlay-open {
     background-color: var(--color-cream-dark);
 }
 
+/* ----- Aufmaß: kota popup (mjera) ----- */
+.aufmass-kota-popup {
+    gap: 6px;
+}
+
+.aufmass-kota-label {
+    font-weight: 700;
+    color: var(--color-brown);
+    font-size: 0.875rem;
+    white-space: nowrap;
+    padding-left: 4px;
+}
+
+.aufmass-kota-popup .aufmass-text-input {
+    width: 130px;
+}
+
 /* ----- Aufmaß 7c-3: save popup ----- */
 .aufmass-save-popup {
     left: 50%;
