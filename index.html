@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#5C3D1E">
+    <meta name="description" content="Renato Stolarija - aplikacija za upravljanje stolarskim poslom">
+    <title>Renato Stolarija</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <header class="app-header">
+        <h1 class="app-title">Renato Stolarija</h1>
+    </header>
+
+    <main class="app-main" id="app-main">
+        <!-- Dashboard modul -->
+        <section class="module" id="module-dashboard" data-module="dashboard">
+            <div class="module-header">
+                <h2>Dashboard</h2>
+            </div>
+            <div class="module-content">
+                <div class="placeholder-card">
+                    <p>Dobrodošli u Renato Stolarija aplikaciju.</p>
+                    <p class="placeholder-hint">Ovdje će se prikazati pregled posla.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Kupci modul -->
+        <section class="module hidden" id="module-kupci" data-module="kupci">
+            <div class="module-header">
+                <h2>Kupci</h2>
+            </div>
+            <div class="module-content" id="kupci-content">
+                <!-- Sadržaj se generira iz js/kupci.js -->
+            </div>
+        </section>
+
+        <!-- Narudžbe modul -->
+        <section class="module hidden" id="module-narudzbe" data-module="narudzbe">
+            <div class="module-header">
+                <h2>Narudžbe</h2>
+            </div>
+            <div class="module-content">
+                <div class="placeholder-card">
+                    <p class="placeholder-hint">Modul u izradi.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Kalendar modul -->
+        <section class="module hidden" id="module-kalendar" data-module="kalendar">
+            <div class="module-header">
+                <h2>Kalendar</h2>
+            </div>
+            <div class="module-content">
+                <div class="placeholder-card">
+                    <p class="placeholder-hint">Modul u izradi.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Više modul -->
+        <section class="module hidden" id="module-vise" data-module="vise">
+            <div class="module-header">
+                <h2>Više</h2>
+            </div>
+            <div class="module-content">
+                <div class="placeholder-card">
+                    <p class="placeholder-hint">Ponude, Galerija i ostale opcije.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <nav class="bottom-nav" role="navigation" aria-label="Glavna navigacija">
+        <button class="nav-btn active" data-target="dashboard" aria-label="Dashboard">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12L12 3l9 9"/>
+                    <path d="M5 10v10h14V10"/>
+                </svg>
+            </span>
+            <span class="nav-label">Početna</span>
+        </button>
+        <button class="nav-btn" data-target="kupci" aria-label="Kupci">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="8" r="4"/>
+                    <path d="M4 21c0-4 4-7 8-7s8 3 8 7"/>
+                </svg>
+            </span>
+            <span class="nav-label">Kupci</span>
+        </button>
+        <button class="nav-btn" data-target="narudzbe" aria-label="Narudžbe">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="4" y="4" width="16" height="16" rx="2"/>
+                    <path d="M8 10h8M8 14h8M8 18h5"/>
+                </svg>
+            </span>
+            <span class="nav-label">Narudžbe</span>
+        </button>
+        <button class="nav-btn" data-target="kalendar" aria-label="Kalendar">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="5" width="18" height="16" rx="2"/>
+                    <path d="M3 9h18M8 3v4M16 3v4"/>
+                </svg>
+            </span>
+            <span class="nav-label">Kalendar</span>
+        </button>
+        <button class="nav-btn" data-target="vise" aria-label="Više">
+            <span class="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="5" cy="12" r="1.5"/>
+                    <circle cx="12" cy="12" r="1.5"/>
+                    <circle cx="19" cy="12" r="1.5"/>
+                </svg>
+            </span>
+            <span class="nav-label">Više</span>
+        </button>
+    </nav>
+
+    <script src="js/app.js"></script>
+    <script src="js/kupci.js"></script>
+</body>
+</html>

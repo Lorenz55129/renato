@@ -1,0 +1,356 @@
+/* ============================================
+   Renato Stolarija - Glavni stilovi
+   Mobile-first design
+   ============================================ */
+
+/* ----- CSS varijable (boje i konstante) ----- */
+:root {
+    --color-brown: #5C3D1E;
+    --color-brown-dark: #3E2814;
+    --color-brown-light: #7A5530;
+    --color-gold: #C9A84C;
+    --color-gold-dark: #A88A35;
+    --color-cream: #F5EFE6;
+    --color-cream-dark: #E8DFD0;
+    --color-white: #FFFFFF;
+    --color-text: #2A1F12;
+    --color-text-muted: #6B5A45;
+    --color-border: #D4C9B5;
+    --color-danger: #B53A2B;
+    --color-success: #4A7A3A;
+
+    --touch-target: 48px;
+    --radius-sm: 6px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.12);
+    --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.16);
+
+    --nav-height: 68px;
+    --header-height: 56px;
+
+    --font-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ----- Reset ----- */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: var(--font-base);
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--color-text);
+    background-color: var(--color-cream);
+    min-height: 100vh;
+    overflow-x: hidden;
+    padding-bottom: var(--nav-height);
+    padding-top: var(--header-height);
+}
+
+button {
+    font-family: inherit;
+    font-size: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: inherit;
+}
+
+input, textarea, select {
+    font-family: inherit;
+    font-size: 16px;
+}
+
+img {
+    max-width: 100%;
+    display: block;
+}
+
+/* ----- Header ----- */
+.app-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--header-height);
+    background-color: var(--color-brown);
+    color: var(--color-cream);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    box-shadow: var(--shadow-md);
+    z-index: 100;
+}
+
+.app-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--color-gold);
+}
+
+/* ----- Main sadržaj ----- */
+.app-main {
+    min-height: calc(100vh - var(--header-height) - var(--nav-height));
+    padding: 16px;
+}
+
+.module {
+    animation: fadeIn 0.2s ease-out;
+}
+
+.module.hidden {
+    display: none;
+}
+
+.module-header {
+    margin-bottom: 16px;
+}
+
+.module-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-brown);
+}
+
+.module-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* ----- Placeholder kartica ----- */
+.placeholder-card {
+    background-color: var(--color-white);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border);
+}
+
+.placeholder-card p {
+    margin-bottom: 8px;
+}
+
+.placeholder-card p:last-child {
+    margin-bottom: 0;
+}
+
+.placeholder-hint {
+    color: var(--color-text-muted);
+    font-style: italic;
+    font-size: 0.9375rem;
+}
+
+/* ----- Gumbi (opće stilove za buduće module) ----- */
+.btn {
+    min-height: var(--touch-target);
+    padding: 12px 20px;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background-color 0.15s, transform 0.05s;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+.btn-primary {
+    background-color: var(--color-brown);
+    color: var(--color-cream);
+}
+
+.btn-primary:active {
+    background-color: var(--color-brown-dark);
+}
+
+.btn-secondary {
+    background-color: var(--color-gold);
+    color: var(--color-brown-dark);
+}
+
+.btn-secondary:active {
+    background-color: var(--color-gold-dark);
+}
+
+.btn-ghost {
+    background-color: transparent;
+    color: var(--color-brown);
+    border: 1px solid var(--color-border);
+}
+
+.btn-danger {
+    background-color: var(--color-danger);
+    color: var(--color-white);
+}
+
+.btn-block {
+    display: flex;
+    width: 100%;
+}
+
+/* ----- Forme (opće stilove za buduće module) ----- */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.form-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-brown);
+}
+
+.form-input,
+.form-textarea,
+.form-select {
+    min-height: var(--touch-target);
+    padding: 12px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-white);
+    color: var(--color-text);
+    width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+    outline: none;
+    border-color: var(--color-gold);
+    box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.2);
+}
+
+.form-textarea {
+    min-height: 96px;
+    resize: vertical;
+}
+
+/* ----- Donja navigacija ----- */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--nav-height);
+    background-color: var(--color-white);
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    align-items: stretch;
+    justify-content: space-around;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+    z-index: 100;
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.nav-btn {
+    flex: 1;
+    min-height: var(--touch-target);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 4px;
+    color: var(--color-text-muted);
+    transition: color 0.15s;
+}
+
+.nav-btn:active {
+    background-color: var(--color-cream-dark);
+}
+
+.nav-btn.active {
+    color: var(--color-brown);
+}
+
+.nav-btn.active .nav-icon {
+    color: var(--color-gold);
+}
+
+.nav-icon {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-icon svg {
+    width: 100%;
+    height: 100%;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.nav-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
+/* ----- Pomoćne klase ----- */
+.hidden {
+    display: none !important;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.mt-1 { margin-top: 8px; }
+.mt-2 { margin-top: 16px; }
+.mt-3 { margin-top: 24px; }
+.mb-1 { margin-bottom: 8px; }
+.mb-2 { margin-bottom: 16px; }
+.mb-3 { margin-bottom: 24px; }
+
+/* ----- Animacije ----- */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ----- Veći ekrani (tablet i šire) ----- */
+@media (min-width: 768px) {
+    .app-main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 24px;
+    }
+
+    .app-title {
+        font-size: 1.25rem;
+    }
+
+    .module-header h2 {
+        font-size: 1.75rem;
+    }
+}
