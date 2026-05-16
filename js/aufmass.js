@@ -17,6 +17,7 @@
     ];
     const DEFAULT_COLOR = '#1A1208';
     const STROKE_SIZES = { S: 2, M: 5, L: 10 };
+    const TEXT_SIZES = { S: 16, M: 22, L: 30 };
     const SIZE_DOT_VISUAL = { S: 4, M: 8, L: 14 };
     const DEFAULT_STROKE_SIZE = 'M';
     const ERASER_MULTIPLIER = 4;
@@ -37,6 +38,8 @@
         lineStartX: 0,                      // 7c-1: početna točka linije
         lineStartY: 0,
         lineBaseSnapshot: null,             // 7c-1: ImageData prije linije (za live preview)
+        textTapX: 0,                        // 7c-2: pozicija dodira za tekst
+        textTapY: 0,
         undoStack: []                       // dataURL-ovi nakon svakog poteza, max UNDO_MAX
     };
 
@@ -143,6 +146,8 @@
                         data-tool="eraser" aria-label="Radirka">⬜</button>
                 <button type="button" class="aufmass-tool-btn aufmass-tool-btn-line ${state.tool === 'linija' ? 'active' : ''}"
                         data-tool="linija" aria-label="Linija">╱ Linija</button>
+                <button type="button" class="aufmass-tool-btn aufmass-tool-btn-line ${state.tool === 'tekst' ? 'active' : ''}"
+                        data-tool="tekst" aria-label="Tekst">T Tekst</button>
 
                 <span class="aufmass-tools-sep" aria-hidden="true"></span>
 
@@ -306,7 +311,7 @@
     }
 
     function setTool(tool) {
-        if (tool !== 'pen' && tool !== 'eraser' && tool !== 'linija') return;
+        if (tool !== 'pen' && tool !== 'eraser' && tool !== 'linija' && tool !== 'tekst') return;
         state.tool = tool;
         document.querySelectorAll('.aufmass-tool-btn[data-tool]').forEach(b => {
             b.classList.toggle('active', b.getAttribute('data-tool') === tool);
@@ -452,11 +457,16 @@
         if (e.touches && e.touches.length > 1) return;
 
         state.isDrawing = true;
-        applyStrokeStyle();
-
         const pos = getPos(e);
         state.lastX = pos.x;
         state.lastY = pos.y;
+
+        if (state.tool === 'tekst') {
+            // Tekst se ne crta na potezu - samo zapamti poziciju za endStroke.
+            return;
+        }
+
+        applyStrokeStyle();
 
         if (state.tool === 'linija') {
             // Snimi cijeli drawCanvas kao bazu - svaki sljedeći move vraća
@@ -482,6 +492,7 @@
     function moveStroke(e) {
         if (!state.isDrawing || !drawCtx) return;
         if (e.touches && e.touches.length > 1) return;
+        if (state.tool === 'tekst') return;   // tekst se ne crta pri pomicanju
 
         const pos = getPos(e);
 
@@ -509,6 +520,14 @@
     function endStroke(e) {
         if (!state.isDrawing) return;
         state.isDrawing = false;
+
+        if (state.tool === 'tekst') {
+            // Otvori popup na poziciji dodira - rendiranje teksta tek nakon
+            // potvrde u commitText(). Ne pushaj undo ovdje.
+            openTextPopup(state.lastX, state.lastY);
+            if (drawCtx) drawCtx.globalCompositeOperation = 'source-over';
+            return;
+        }
 
         if (state.tool === 'linija') {
             // Finaliziraj liniju i u slučaju da korisnik nije pomaknuo prst -
@@ -593,12 +612,99 @@
         btn.textContent = has ? 'Spremi ✓' : 'Spremi';
     }
 
+    // ----- Tekst popup (7c-2) -----
+    function openTextPopup(x, y) {
+        closeTextPopup();
+
+        const wrap = document.getElementById('aufmass-canvas-wrap');
+        if (!wrap) return;
+
+        state.textTapX = x;
+        state.textTapY = y;
+
+        const popup = document.createElement('div');
+        popup.className = 'aufmass-text-popup';
+        popup.id = 'aufmass-text-popup';
+        popup.setAttribute('role', 'dialog');
+        popup.setAttribute('aria-label', 'Unesi tekst');
+        popup.innerHTML = `
+            <input type="text" class="aufmass-text-input" id="aufmass-text-input"
+                   placeholder="Unesite tekst..." autocomplete="off" autocapitalize="sentences">
+            <button type="button" class="aufmass-text-ok" id="aufmass-text-ok">OK</button>
+            <button type="button" class="aufmass-text-cancel" id="aufmass-text-cancel" aria-label="Odustani">✕</button>
+        `;
+        wrap.appendChild(popup);
+
+        // Rubni ispravak: minimalno MARGIN od svih strana wrap-a.
+        const MARGIN = 10;
+        const wrapW = wrap.clientWidth;
+        const wrapH = wrap.clientHeight;
+        const popupW = popup.offsetWidth;
+        const popupH = popup.offsetHeight;
+
+        let left = x;
+        let top = y;
+        if (left + popupW > wrapW - MARGIN) left = wrapW - popupW - MARGIN;
+        if (top + popupH > wrapH - MARGIN) top = wrapH - popupH - MARGIN;
+        if (left < MARGIN) left = MARGIN;
+        if (top < MARGIN) top = MARGIN;
+        popup.style.left = left + 'px';
+        popup.style.top = top + 'px';
+
+        const input = document.getElementById('aufmass-text-input');
+        setTimeout(() => { if (input) input.focus(); }, 30);
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                commitText();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                closeTextPopup();
+            }
+        });
+
+        document.getElementById('aufmass-text-ok').addEventListener('click', commitText);
+        document.getElementById('aufmass-text-cancel').addEventListener('click', closeTextPopup);
+    }
+
+    function commitText() {
+        const input = document.getElementById('aufmass-text-input');
+        if (!input) { closeTextPopup(); return; }
+        const text = input.value;
+        if (text && text.trim()) {
+            drawText(text, state.textTapX, state.textTapY);
+            pushUndoSnapshot();
+            updateSpremiButton();
+        }
+        closeTextPopup();
+    }
+
+    function closeTextPopup() {
+        const p = document.getElementById('aufmass-text-popup');
+        if (p) p.remove();
+    }
+
+    function drawText(text, x, y) {
+        if (!drawCtx) return;
+        const size = TEXT_SIZES[state.strokeSize] || TEXT_SIZES.M;
+        drawCtx.globalCompositeOperation = 'source-over';
+        drawCtx.fillStyle = state.color;
+        drawCtx.font = size + 'px sans-serif';
+        drawCtx.textBaseline = 'top';
+        drawCtx.fillText(text, x, y);
+    }
+
     // ----- Init i javni API -----
     function init() {
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && state.open) {
-                close();
+            if (e.key !== 'Escape') return;
+            if (document.getElementById('aufmass-text-popup')) {
+                closeTextPopup();
+                return;
             }
+            if (state.open) close();
         });
     }
 
