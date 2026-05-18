@@ -54,10 +54,24 @@
   }
 
   async function showApp() {
-    await App.DB.migrateFromLocalStorage();
+    // 1. localStorage → IndexedDB (einmalig)
+    const migrationResult = await App.DB.migrateFromLocalStorage();
+
+    // 2. Migrirani podaci → Server (prije Read-Synca)
+    if (migrationResult && migrationResult.migrated && migrationResult.totalMigrated > 0) {
+      const pushResult = await App.Sync.pushInitialMigration(migrationResult.data);
+      if (pushResult.ok) {
+        console.info('Migration kompletna: ' + pushResult.uploaded + ' Datensätze zum Server hochgeladen.');
+      }
+    }
+
+    // 3. Server → IndexedDB (Server je istina)
     await App.Sync.syncFromServer();
+
+    // 4. Cache osvježiti
     await App.Storage.initCache();
 
+    // 5. UI prikazati
     document.getElementById('login-screen').classList.add('hidden');
     const nav = document.querySelector('.bottom-nav');
     if (nav) nav.classList.remove('hidden');

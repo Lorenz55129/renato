@@ -164,6 +164,72 @@
         if (navigator.onLine) processQueue();
     }, 30000);
 
+    // ----- Inicijalna migracija: lokalni podaci → Server -----
+    async function pushInitialMigration(migratedData) {
+        if (!migratedData || Object.keys(migratedData).length === 0) {
+            return { ok: true, uploaded: 0 };
+        }
+
+        if (!navigator.onLine) {
+            console.warn('Offline – migracija se šalje pri sljedećem spajanju.');
+            for (const [table, records] of Object.entries(migratedData)) {
+                for (const record of records) {
+                    await enqueueChange({ table, record_id: record.id, action: 'put', record });
+                }
+            }
+            return { ok: false, reason: 'offline', queued: true };
+        }
+
+        setStatus('syncing');
+        let totalUploaded = 0;
+        try {
+            for (const [table, records] of Object.entries(migratedData)) {
+                if (!records.length) continue;
+                await App.Api.apiCall('POST', '/' + table + '/bulk', records);
+                totalUploaded += records.length;
+                console.info('Migration: ' + records.length + ' ' + table + ' → Server.');
+            }
+            localStorage.setItem('renato_migration_completed', new Date().toISOString());
+            setStatus('idle');
+            return { ok: true, uploaded: totalUploaded };
+        } catch (err) {
+            console.error('Migration upload fehlgeschlagen:', err);
+            // Fallback: u Queue za kasniji retry
+            for (const [table, records] of Object.entries(migratedData)) {
+                for (const record of records) {
+                    await enqueueChange({ table, record_id: record.id, action: 'put', record });
+                }
+            }
+            setStatus('error', { error: err.message });
+            return { ok: false, reason: err.message };
+        }
+    }
+
+    // ----- Meta info za Više ekran -----
+    async function updateMetaInfo() {
+        const migEl = document.getElementById('meta-migration');
+        const syncEl = document.getElementById('meta-lastsync');
+        if (!migEl && !syncEl) return;
+
+        const migration = await App.DB.db.meta.get('migrated_from_localstorage');
+        const lastSyncVal = await getLastSync();
+
+        const fmt = (iso) => {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            return d.toLocaleDateString('hr-HR') + ' ' + d.toLocaleTimeString('hr-HR', { hour: '2-digit', minute: '2-digit' });
+        };
+
+        if (migEl) migEl.textContent = migration
+            ? fmt(migration.timestamp) + ' (' + (migration.totalRecords || 0) + ' zap.)'
+            : '—';
+        if (syncEl) syncEl.textContent = fmt(lastSyncVal);
+    }
+
+    document.addEventListener('module:shown', function (e) {
+        if (e.detail.module === 'vise') updateMetaInfo();
+    });
+
     window.App = window.App || {};
     window.App.Sync = {
         syncFromServer,
@@ -172,6 +238,7 @@
         onStatusChange,
         enqueueChange,
         processQueue,
-        getPendingCount
+        getPendingCount,
+        pushInitialMigration
     };
 })();

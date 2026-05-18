@@ -1455,6 +1455,29 @@ body.overlay-open {
 /* ============================================
    Modul: Više (izbornik)
    ============================================ */
+.meta-info {
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.meta-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+}
+.meta-info-label {
+    color: var(--color-text-muted);
+}
+.meta-info-value {
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
 .menu-list {
     list-style: none;
     display: flex;

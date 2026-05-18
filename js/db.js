@@ -58,19 +58,20 @@
 
     async function migrateFromLocalStorage() {
         const migrated = await db.meta.get('migrated_from_localstorage');
-        if (migrated) return;
+        if (migrated) return { migrated: false, reason: 'already_done' };
 
         const tables = ['kupci', 'narudzbe', 'ponude', 'termini', 'edukacije'];
         let totalMigrated = 0;
+        const migratedData = {};
 
         for (const t of tables) {
-            // Support both bare key and 'renato.' prefix used by old Storage
             const raw = localStorage.getItem(t) || localStorage.getItem('renato.' + t);
             if (raw) {
                 try {
                     const data = JSON.parse(raw);
                     if (Array.isArray(data) && data.length > 0) {
                         await db.table(t).bulkPut(data);
+                        migratedData[t] = data;
                         totalMigrated += data.length;
                     }
                 } catch (e) {
@@ -82,10 +83,12 @@
         await db.meta.put({
             key: 'migrated_from_localstorage',
             value: true,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            totalRecords: totalMigrated
         });
-        console.info('Migration: ' + totalMigrated + ' Datensätze von localStorage zu IndexedDB übertragen.');
+        console.info('Migration lokalna: ' + totalMigrated + ' Datensätze von localStorage zu IndexedDB.');
         // localStorage ostaje kao backup – ne briše se
+        return { migrated: true, totalMigrated, data: migratedData };
     }
 
     window.App = window.App || {};
