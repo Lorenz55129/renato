@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const API_BASE = 'https://renato.lorenz-tools.de/api';
+  const API_BASE = '/api';
   const TOKEN_KEY = 'renato_token';
   const USER_KEY = 'renato_user';
 
