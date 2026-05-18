@@ -115,14 +115,15 @@
     };
 
     // ----- Javni API (globalno dostupno za druge module) -----
-    window.App = {
-        Storage,
-        Nav
-    };
+    // Extend (ne replace) – api.js i auth.js se učitavaju prije
+    window.App = window.App || {};
+    window.App.Storage = Storage;
+    window.App.Nav = Nav;
 
     // ----- Inicijalizacija ----
     document.addEventListener('DOMContentLoaded', () => {
         Nav.init();
+        App.Auth.init();
         console.info('Renato Stolarija - aplikacija pokrenuta.');
     });
 })();

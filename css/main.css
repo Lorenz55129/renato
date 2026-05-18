@@ -338,6 +338,145 @@ img {
     }
 }
 
+/* ----- Login Screen ----- */
+.login-screen {
+    position: fixed;
+    inset: 0;
+    background-color: var(--color-brown);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 200;
+}
+
+.login-box {
+    background-color: var(--color-white);
+    border-radius: var(--radius-lg);
+    padding: 36px 28px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: var(--shadow-lg);
+}
+
+.login-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--color-gold-dark);
+    text-align: center;
+    margin-bottom: 4px;
+    letter-spacing: 0.3px;
+}
+
+.login-subtitle {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    text-align: center;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+}
+
+/* ----- Form Feedback ----- */
+.form-error {
+    background-color: #fef2f2;
+    color: var(--color-danger);
+    border: 1px solid #fecaca;
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+}
+
+.form-success {
+    background-color: #f0fdf4;
+    color: var(--color-success);
+    border: 1px solid #bbf7d0;
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+}
+
+/* ----- Više Menü ----- */
+.menu-list {
+    list-style: none;
+    background-color: var(--color-white);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    min-height: var(--touch-target);
+    cursor: pointer;
+    border-bottom: 1px solid var(--color-border);
+    transition: background-color 0.12s;
+}
+
+.menu-item:last-child {
+    border-bottom: none;
+}
+
+.menu-item:active {
+    background-color: var(--color-cream-dark);
+}
+
+.menu-item-label {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.menu-item-arrow {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+}
+
+.menu-item-danger .menu-item-label {
+    color: var(--color-danger);
+}
+
+/* ----- Modul-Header mit Zurück-Button ----- */
+.module-header-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.module-header-nav h2 {
+    margin: 0;
+}
+
+.btn-back {
+    min-height: var(--touch-target);
+    padding: 8px 12px;
+    background: none;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-brown);
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.12s;
+}
+
+.btn-back:active {
+    background-color: var(--color-cream-dark);
+}
+
 /* ----- Veći ekrani (tablet i šire) ----- */
 @media (min-width: 768px) {
     .app-main {
