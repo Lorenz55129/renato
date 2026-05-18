@@ -27,6 +27,14 @@
             return { ok: false, reason: 'offline' };
         }
 
+        // SAFETY: ne smijemo pregaziti lokalne podatke dok ima nesinhroniziranih promjena
+        const pendingCount = await getPendingCount();
+        if (pendingCount > 0) {
+            console.warn('Read-Sync preskočen: ' + pendingCount + ' promjena čeka slanje na server.');
+            setStatus('idle');
+            return { ok: false, reason: 'pending_changes' };
+        }
+
         setStatus('syncing');
         try {
             for (const t of TABLES) {
@@ -83,25 +91,34 @@
         setStatus('syncing');
 
         let anySuccess = false;
+        let anyFailed = false;
         try {
             for (const item of pending) {
+                console.info('[Sync] Queue-Item: ' + item.table + ' ' + item.action + ' ' + item.record_id);
                 try {
                     await App.DB.db.sync_queue.update(item.id, { status: 'syncing' });
 
                     if (item.action === 'put') {
-                        await App.Api.apiCall('POST', '/' + item.table + '/bulk', [item.record]);
+                        const resp = await App.Api.apiCall('POST', '/' + item.table + '/bulk', [item.record]);
+                        if (!resp || typeof resp.imported !== 'number' || resp.imported < 1) {
+                            throw new Error('Bulk potvrda neuspješna: imported=' + (resp && resp.imported));
+                        }
+                        console.info('[Sync] Bulk OK: ' + item.table + ' imported=' + resp.imported);
                     } else if (item.action === 'delete') {
                         await App.Api.apiCall('DELETE', '/' + item.table + '/' + item.record_id);
+                        console.info('[Sync] Delete OK: ' + item.table + '/' + item.record_id);
                     }
 
                     await App.DB.db.sync_queue.delete(item.id);
                     anySuccess = true;
                 } catch (err) {
+                    console.error('[Sync] Greška za ' + item.table + '/' + item.record_id + ':', err.message);
                     await App.DB.db.sync_queue.update(item.id, {
                         status:     'failed',
                         retries:    (item.retries || 0) + 1,
                         last_error: err.message
                     });
+                    anyFailed = true;
                 }
             }
         } finally {
@@ -109,13 +126,8 @@
         }
 
         await updatePendingIndicator();
-
-        // Nakon uspješnog upisa, Read-sync da lokalni cache odgovara serveru
-        if (anySuccess) {
-            await syncFromServer();
-        } else {
-            setStatus('error');
-        }
+        // Read-Sync se NE poziva ovdje – samo na Login i na manual "Sinkronizacija sad"
+        setStatus(anyFailed && !anySuccess ? 'error' : 'idle');
     }
 
     async function getPendingCount() {
@@ -230,6 +242,35 @@
         if (e.detail.module === 'vise') updateMetaInfo();
     });
 
+    // ----- Dijagnostika (DevTools: App.Sync.diagnose()) -----
+    async function diagnose() {
+        const local = {};
+        for (const t of TABLES) {
+            local[t] = (await App.DB.db[t].toArray()).length;
+        }
+        const queue = await App.DB.db.sync_queue.toArray();
+        const meta  = await App.DB.db.meta.toArray();
+
+        const server = {};
+        for (const t of TABLES) {
+            try {
+                const data = await App.Api.apiCall('GET', '/' + t);
+                server[t] = data.length;
+            } catch (e) {
+                server[t] = 'ERROR: ' + e.message;
+            }
+        }
+
+        const rows = {};
+        for (const t of TABLES) {
+            rows[t] = { local: local[t], server: server[t] };
+        }
+        console.table(rows);
+        console.log('[Sync] Queue (' + queue.length + '):', queue);
+        console.log('[Sync] Meta:', meta);
+        return { local, server, queue, meta };
+    }
+
     window.App = window.App || {};
     window.App.Sync = {
         syncFromServer,
@@ -239,6 +280,7 @@
         enqueueChange,
         processQueue,
         getPendingCount,
-        pushInitialMigration
+        pushInitialMigration,
+        diagnose
     };
 })();
