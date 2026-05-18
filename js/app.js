@@ -19,7 +19,8 @@
 
         function load(key, defaultValue) {
             if (cache[key] === undefined) return defaultValue !== undefined ? defaultValue : [];
-            return cache[key];
+            // Deep-copy – modules must not mutate the cache directly
+            return JSON.parse(JSON.stringify(cache[key]));
         }
 
         async function save(key, value) {
