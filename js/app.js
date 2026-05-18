@@ -23,23 +23,35 @@
         }
 
         async function save(key, value) {
-            const oldData = cache[key] || [];
+            console.log('[Storage.save] START key=' + key + ' newLen=' + (value && value.length));
+
+            // Deep-copy before updating cache – modules often mutate the same array
+            // reference that cache holds, making oldData === value after mutation
+            const oldData = JSON.parse(JSON.stringify(cache[key] || []));
+            console.log('[Storage.save] oldLen=' + oldData.length + ' newLen=' + (value && value.length));
+
             cache[key] = value;
-
             await App.DB.saveAll(key, value);
+            console.log('[Storage.save] IndexedDB write done');
 
-            // Diff → Sync-Queue (samo za poznate tablice)
             if (TABLES.includes(key)) {
                 const changes = computeDiff(oldData, value, key);
-                // Await all enqueues before processQueue — otherwise processQueue
-                // reads DB before items are written and misses them (race condition)
+                console.log('[Storage.save] computeDiff:', changes.length, 'changes', changes.map(c => c.action + ':' + c.record_id));
+
+                if (changes.length === 0) {
+                    console.warn('[Storage.save] NO CHANGES – oldData and value may have been same reference before this fix');
+                }
+
                 for (const change of changes) {
+                    console.log('[Storage.save] Enqueueing:', change.action, change.record_id);
                     await App.Sync.enqueueChange(change);
                 }
+                console.log('[Storage.save] All enqueued. online=' + navigator.onLine);
                 if (changes.length && navigator.onLine) {
-                    App.Sync.processQueue(); // fire-and-forget ok — items are in DB now
+                    App.Sync.processQueue();
                 }
             }
+            console.log('[Storage.save] END key=' + key);
         }
 
         // remove: briše cijelu tablicu iz cache + DB

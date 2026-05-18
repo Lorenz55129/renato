@@ -89,7 +89,8 @@
 
     // ----- Write-sync: IndexedDB → Server -----
     async function enqueueChange(change) {
-        await App.DB.db.sync_queue.add({
+        console.log('[enqueueChange] START:', change.table, change.action, change.record_id);
+        const newId = await App.DB.db.sync_queue.add({
             table:      change.table,
             record_id:  change.record_id,
             action:     change.action,
@@ -99,14 +100,16 @@
             retries:    0,
             last_error: null
         });
-        await updatePendingIndicator(); // await – prevents indicator race on rapid saves
+        const verify = await App.DB.db.sync_queue.get(newId);
+        console.log('[enqueueChange] Added id=' + newId + ' verify:', verify ? verify.status : 'NOT FOUND');
+        await updatePendingIndicator();
     }
 
     async function processQueue() {
+        console.log('[processQueue] CALLED. isProcessing=' + isProcessing + ' online=' + navigator.onLine);
         if (isProcessing) return;
         if (!navigator.onLine) { setStatus('offline'); return; }
 
-        // toArray() + JS filter – ne ovisi o Dexie 'status' indexu (izbjegava v1→v2 upgrade probleme)
         const allItems = await App.DB.db.sync_queue.toArray();
         const pending = allItems.filter(i => i.status === 'pending' || i.status === 'failed');
 
