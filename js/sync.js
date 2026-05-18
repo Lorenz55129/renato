@@ -27,7 +27,7 @@
             return { ok: false, reason: 'offline' };
         }
 
-        // SAFETY: ne smijemo pregaziti lokalne podatke dok ima nesinhroniziranih promjena
+        // SAFETY 1: Queue nije prazna → ne smijemo pregaziti lokalne promjene
         const pendingCount = await getPendingCount();
         if (pendingCount > 0) {
             console.warn('Read-Sync preskočen: ' + pendingCount + ' promjena čeka slanje na server.');
@@ -35,11 +35,36 @@
             return { ok: false, reason: 'pending_changes' };
         }
 
+        // SAFETY 2: Lokalno više zapisa nego na serveru → ne smijemo pregaziti
         setStatus('syncing');
+        const serverData = {};
+        const conflicts = [];
         try {
             for (const t of TABLES) {
                 const data = await App.Api.apiCall('GET', '/' + t);
-                await App.DB.saveAll(t, data);
+                serverData[t] = data;
+                const localCount = await App.DB.db.table(t).count();
+                if (localCount > data.length) {
+                    conflicts.push({ table: t, local: localCount, server: data.length });
+                }
+            }
+        } catch (err) {
+            console.error('Sync greška pri dohvatu:', err);
+            setStatus('error', { error: err.message });
+            return { ok: false, reason: err.message };
+        }
+
+        if (conflicts.length > 0) {
+            console.error('Read-Sync ABORTED – lokalno više podataka nego na serveru:', conflicts);
+            console.warn('Pokreni App.Sync.forcePushAll() za spas lokalnih podataka.');
+            setStatus('idle');
+            return { ok: false, reason: 'local_data_not_synced', conflicts };
+        }
+
+        // Sve ok – zapiši server podatke lokalno
+        try {
+            for (const t of TABLES) {
+                await App.DB.saveAll(t, serverData[t]);
             }
 
             await App.Storage.initCache();
@@ -51,7 +76,7 @@
             console.info('Sync: završen u', lastSync);
             return { ok: true, lastSync };
         } catch (err) {
-            console.error('Sync greška:', err);
+            console.error('Sync greška pri pisanju:', err);
             setStatus('error', { error: err.message });
             return { ok: false, reason: err.message };
         }
@@ -259,6 +284,29 @@
         if (e.detail.module === 'vise') updateMetaInfo();
     });
 
+    // ----- Nužna rettungsfunktion: Force-push svih lokalnih podataka na server -----
+    async function forcePushAll() {
+        const results = {};
+        for (const t of TABLES) {
+            try {
+                const local = await App.DB.db.table(t).toArray();
+                if (local.length === 0) {
+                    results[t] = { local: 0, pushed: 0, success: true };
+                    continue;
+                }
+                console.log('[forcePushAll]', t, ': uploading', local.length, 'records');
+                const resp = await App.Api.apiCall('POST', '/' + t + '/bulk', local);
+                results[t] = { local: local.length, pushed: resp.imported || 0, success: (resp.imported || 0) >= local.length };
+                console.log('[forcePushAll]', t, ':', resp.imported, 'imported');
+            } catch (err) {
+                results[t] = { local: '?', pushed: 0, success: false, error: err.message };
+                console.error('[forcePushAll]', t, 'failed:', err.message);
+            }
+        }
+        console.table(results);
+        return results;
+    }
+
     // ----- Dijagnostika (DevTools: App.Sync.diagnose()) -----
     async function diagnose() {
         const local = {};
@@ -298,6 +346,7 @@
         processQueue,
         getPendingCount,
         pushInitialMigration,
+        forcePushAll,
         diagnose
     };
 })();
