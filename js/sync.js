@@ -74,17 +74,18 @@
             retries:    0,
             last_error: null
         });
-        updatePendingIndicator();
+        await updatePendingIndicator(); // await – prevents indicator race on rapid saves
     }
 
     async function processQueue() {
         if (isProcessing) return;
         if (!navigator.onLine) { setStatus('offline'); return; }
 
-        const pending = await App.DB.db.sync_queue
-            .where('status').anyOf('pending', 'failed')
-            .toArray();
+        // toArray() + JS filter – ne ovisi o Dexie 'status' indexu (izbjegava v1→v2 upgrade probleme)
+        const allItems = await App.DB.db.sync_queue.toArray();
+        const pending = allItems.filter(i => i.status === 'pending' || i.status === 'failed');
 
+        console.log('[processQueue] Pending items:', pending.length, pending.map(i => i.table + ':' + i.action));
         if (!pending.length) return;
 
         isProcessing = true;
@@ -94,36 +95,42 @@
         let anyFailed = false;
         try {
             for (const item of pending) {
-                console.info('[Sync] Start: ' + item.table + ' ' + item.action + ' ' + item.record_id);
+                console.log('[Item] Start:', JSON.stringify({ id: item.id, table: item.table, action: item.action, record_id: item.record_id, status: item.status }));
                 let success = false;
                 try {
                     await App.DB.db.sync_queue.update(item.id, { status: 'syncing' });
 
                     if (item.action === 'put') {
+                        console.log('[Item] Calling API: POST /' + item.table + '/bulk', JSON.stringify(item.record).slice(0, 120));
                         const resp = await App.Api.apiCall('POST', '/' + item.table + '/bulk', [item.record]);
+                        console.log('[Item] API response:', JSON.stringify(resp));
                         if (resp && typeof resp.imported === 'number' && resp.imported >= 1) {
                             success = true;
-                            console.info('[Sync] Bulk OK: ' + item.table + ' imported=' + resp.imported);
                         } else {
                             throw new Error('Bulk potvrda neuspješna: ' + JSON.stringify(resp));
                         }
                     } else if (item.action === 'delete') {
+                        console.log('[Item] Calling API: DELETE /' + item.table + '/' + item.record_id);
                         const resp = await App.Api.apiCall('DELETE', '/' + item.table + '/' + item.record_id);
+                        console.log('[Item] API response:', JSON.stringify(resp));
                         if (resp && resp.ok) {
                             success = true;
-                            console.info('[Sync] Delete OK: ' + item.table + '/' + item.record_id);
                         } else {
                             throw new Error('Delete potvrda neuspješna: ' + JSON.stringify(resp));
                         }
                     }
 
-                    // delete SAMO ako je server potvrdio
-                    if (success) {
-                        await App.DB.db.sync_queue.delete(item.id);
-                        anySuccess = true;
+                    console.log('[Item] success flag:', success);
+                    if (!success) {
+                        throw new Error('Success flag ostao false – nepoznata akcija: ' + item.action);
                     }
+
+                    console.log('[Item] DELETING from queue:', item.id);
+                    await App.DB.db.sync_queue.delete(item.id);
+                    anySuccess = true;
+                    console.log('[Item] Queue delete done for id:', item.id);
                 } catch (err) {
-                    console.error('[Sync] Greška: ' + item.table + ' ' + item.action + ' ' + item.record_id + ' →', err.message);
+                    console.error('[Item] FAILED:', item.id, item.table, item.action, err.message);
                     await App.DB.db.sync_queue.update(item.id, {
                         status:     'failed',
                         retries:    (item.retries || 0) + 1,
@@ -142,9 +149,8 @@
     }
 
     async function getPendingCount() {
-        return await App.DB.db.sync_queue
-            .where('status').anyOf('pending', 'failed', 'syncing')
-            .count();
+        const all = await App.DB.db.sync_queue.toArray();
+        return all.filter(i => i.status === 'pending' || i.status === 'failed' || i.status === 'syncing').length;
     }
 
     async function updatePendingIndicator() {
