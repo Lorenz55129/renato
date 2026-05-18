@@ -11,6 +11,15 @@
         sync_queue:  '++id, table, record_id, action, timestamp',
         meta:        'key'
     });
+    db.version(2).stores({
+        kupci:       'id',
+        narudzbe:    'id',
+        ponude:      'id',
+        termini:     'id',
+        edukacije:   'id',
+        sync_queue:  '++id, table, record_id, action, timestamp, status',
+        meta:        'key'
+    });
 
     async function loadAll(table) {
         return await db.table(table).toArray();

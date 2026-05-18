@@ -6,6 +6,7 @@
     let syncStatus = 'idle';
     let lastSync = null;
     let listeners = [];
+    let isProcessing = false;
 
     function setStatus(status, info) {
         syncStatus = status;
@@ -17,6 +18,9 @@
         return function () { listeners = listeners.filter(l => l !== fn); };
     }
 
+    function getStatus() { return syncStatus; }
+
+    // ----- Read-sync: Server → IndexedDB -----
     async function syncFromServer() {
         if (!navigator.onLine) {
             setStatus('offline');
@@ -50,28 +54,124 @@
         return row ? row.value : null;
     }
 
-    function getStatus() { return syncStatus; }
+    // ----- Write-sync: IndexedDB → Server -----
+    async function enqueueChange(change) {
+        await App.DB.db.sync_queue.add({
+            table:      change.table,
+            record_id:  change.record_id,
+            action:     change.action,
+            record:     change.record,
+            timestamp:  new Date().toISOString(),
+            status:     'pending',
+            retries:    0,
+            last_error: null
+        });
+        updatePendingIndicator();
+    }
+
+    async function processQueue() {
+        if (isProcessing) return;
+        if (!navigator.onLine) { setStatus('offline'); return; }
+
+        const pending = await App.DB.db.sync_queue
+            .where('status').anyOf('pending', 'failed')
+            .toArray();
+
+        if (!pending.length) return;
+
+        isProcessing = true;
+        setStatus('syncing');
+
+        let anySuccess = false;
+        try {
+            for (const item of pending) {
+                try {
+                    await App.DB.db.sync_queue.update(item.id, { status: 'syncing' });
+
+                    if (item.action === 'put') {
+                        await App.Api.apiCall('POST', '/' + item.table + '/bulk', [item.record]);
+                    } else if (item.action === 'delete') {
+                        await App.Api.apiCall('DELETE', '/' + item.table + '/' + item.record_id);
+                    }
+
+                    await App.DB.db.sync_queue.delete(item.id);
+                    anySuccess = true;
+                } catch (err) {
+                    await App.DB.db.sync_queue.update(item.id, {
+                        status:     'failed',
+                        retries:    (item.retries || 0) + 1,
+                        last_error: err.message
+                    });
+                }
+            }
+        } finally {
+            isProcessing = false;
+        }
+
+        await updatePendingIndicator();
+
+        // Nakon uspješnog upisa, Read-sync da lokalni cache odgovara serveru
+        if (anySuccess) {
+            await syncFromServer();
+        } else {
+            setStatus('error');
+        }
+    }
+
+    async function getPendingCount() {
+        return await App.DB.db.sync_queue
+            .where('status').anyOf('pending', 'failed', 'syncing')
+            .count();
+    }
+
+    async function updatePendingIndicator() {
+        const count = await getPendingCount();
+        // Ažuriraj UI direktno (listeners dobivaju pending count)
+        listeners.forEach(l => l(syncStatus, { pendingCount: count }));
+        updateSyncIndicator();
+    }
 
     // ----- Sync-status indikator (UI) -----
-    function updateSyncIndicator(status) {
+    async function updateSyncIndicator(status) {
         const el = document.getElementById('sync-indicator');
         if (!el) return;
         const label = el.querySelector('.sync-label');
-        el.className = 'sync-indicator sync-' + (status || syncStatus);
-        const labels = { idle: 'Online', syncing: 'Sync...', error: 'Greška', offline: 'Offline' };
-        if (label) label.textContent = labels[status || syncStatus] || (status || syncStatus);
+        const s = status || syncStatus;
+        const pending = await getPendingCount();
+
+        el.className = 'sync-indicator sync-' + s;
+        const labels = {
+            idle:    pending > 0 ? 'Čeka (' + pending + ')' : 'Online',
+            syncing: pending > 0 ? 'Sync (' + pending + ')' : 'Sync...',
+            error:   'Greška' + (pending > 0 ? ' (' + pending + ')' : ''),
+            offline: pending > 0 ? 'Offline (' + pending + ')' : 'Offline'
+        };
+        if (label) label.textContent = labels[s] || s;
     }
 
-    onStatusChange(updateSyncIndicator);
-    document.addEventListener('DOMContentLoaded', function () { updateSyncIndicator(syncStatus); });
+    onStatusChange(function (status) { updateSyncIndicator(status); });
+    document.addEventListener('DOMContentLoaded', function () { updateSyncIndicator(); });
 
     // ----- Online/Offline events -----
     window.addEventListener('online', function () {
         setStatus('idle');
-        syncFromServer();
+        processQueue();
     });
     window.addEventListener('offline', function () { setStatus('offline'); });
 
+    // Periodični retry svakih 30s za failed stavke
+    setInterval(function () {
+        if (navigator.onLine) processQueue();
+    }, 30000);
+
     window.App = window.App || {};
-    window.App.Sync = { syncFromServer, getStatus, getLastSync, onStatusChange };
+    window.App.Sync = {
+        syncFromServer,
+        getStatus,
+        getLastSync,
+        onStatusChange,
+        enqueueChange,
+        processQueue,
+        getPendingCount
+    };
 })();

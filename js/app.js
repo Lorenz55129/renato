@@ -23,14 +23,56 @@
         }
 
         async function save(key, value) {
+            const oldData = cache[key] || [];
             cache[key] = value;
+
             await App.DB.saveAll(key, value);
+
+            // Diff → Sync-Queue (samo za poznate tablice)
+            if (TABLES.includes(key)) {
+                const changes = computeDiff(oldData, value, key);
+                for (const change of changes) {
+                    App.Sync.enqueueChange(change); // fire-and-forget
+                }
+                if (changes.length && navigator.onLine) {
+                    App.Sync.processQueue(); // fire-and-forget
+                }
+            }
         }
 
         // remove: briše cijelu tablicu iz cache + DB
         async function remove(key) {
+            const oldData = cache[key] || [];
             cache[key] = [];
             await App.DB.saveAll(key, []);
+            if (TABLES.includes(key)) {
+                const changes = computeDiff(oldData, [], key);
+                for (const change of changes) {
+                    App.Sync.enqueueChange(change);
+                }
+                if (changes.length && navigator.onLine) {
+                    App.Sync.processQueue();
+                }
+            }
+        }
+
+        function computeDiff(oldArr, newArr, table) {
+            const oldMap = new Map((oldArr || []).map(o => [o.id, o]));
+            const newMap = new Map((newArr || []).map(o => [o.id, o]));
+            const changes = [];
+
+            for (const [id, record] of newMap) {
+                const oldRec = oldMap.get(id);
+                if (!oldRec || JSON.stringify(oldRec) !== JSON.stringify(record)) {
+                    changes.push({ table, record_id: id, action: 'put', record });
+                }
+            }
+            for (const [id] of oldMap) {
+                if (!newMap.has(id)) {
+                    changes.push({ table, record_id: id, action: 'delete', record: null });
+                }
+            }
+            return changes;
         }
 
         function generateId() {
