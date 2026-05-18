@@ -31,11 +31,13 @@
             // Diff → Sync-Queue (samo za poznate tablice)
             if (TABLES.includes(key)) {
                 const changes = computeDiff(oldData, value, key);
+                // Await all enqueues before processQueue — otherwise processQueue
+                // reads DB before items are written and misses them (race condition)
                 for (const change of changes) {
-                    App.Sync.enqueueChange(change); // fire-and-forget
+                    await App.Sync.enqueueChange(change);
                 }
                 if (changes.length && navigator.onLine) {
-                    App.Sync.processQueue(); // fire-and-forget
+                    App.Sync.processQueue(); // fire-and-forget ok — items are in DB now
                 }
             }
         }
@@ -48,7 +50,7 @@
             if (TABLES.includes(key)) {
                 const changes = computeDiff(oldData, [], key);
                 for (const change of changes) {
-                    App.Sync.enqueueChange(change);
+                    await App.Sync.enqueueChange(change);
                 }
                 if (changes.length && navigator.onLine) {
                     App.Sync.processQueue();

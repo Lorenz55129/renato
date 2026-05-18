@@ -94,25 +94,36 @@
         let anyFailed = false;
         try {
             for (const item of pending) {
-                console.info('[Sync] Queue-Item: ' + item.table + ' ' + item.action + ' ' + item.record_id);
+                console.info('[Sync] Start: ' + item.table + ' ' + item.action + ' ' + item.record_id);
+                let success = false;
                 try {
                     await App.DB.db.sync_queue.update(item.id, { status: 'syncing' });
 
                     if (item.action === 'put') {
                         const resp = await App.Api.apiCall('POST', '/' + item.table + '/bulk', [item.record]);
-                        if (!resp || typeof resp.imported !== 'number' || resp.imported < 1) {
-                            throw new Error('Bulk potvrda neuspješna: imported=' + (resp && resp.imported));
+                        if (resp && typeof resp.imported === 'number' && resp.imported >= 1) {
+                            success = true;
+                            console.info('[Sync] Bulk OK: ' + item.table + ' imported=' + resp.imported);
+                        } else {
+                            throw new Error('Bulk potvrda neuspješna: ' + JSON.stringify(resp));
                         }
-                        console.info('[Sync] Bulk OK: ' + item.table + ' imported=' + resp.imported);
                     } else if (item.action === 'delete') {
-                        await App.Api.apiCall('DELETE', '/' + item.table + '/' + item.record_id);
-                        console.info('[Sync] Delete OK: ' + item.table + '/' + item.record_id);
+                        const resp = await App.Api.apiCall('DELETE', '/' + item.table + '/' + item.record_id);
+                        if (resp && resp.ok) {
+                            success = true;
+                            console.info('[Sync] Delete OK: ' + item.table + '/' + item.record_id);
+                        } else {
+                            throw new Error('Delete potvrda neuspješna: ' + JSON.stringify(resp));
+                        }
                     }
 
-                    await App.DB.db.sync_queue.delete(item.id);
-                    anySuccess = true;
+                    // delete SAMO ako je server potvrdio
+                    if (success) {
+                        await App.DB.db.sync_queue.delete(item.id);
+                        anySuccess = true;
+                    }
                 } catch (err) {
-                    console.error('[Sync] Greška za ' + item.table + '/' + item.record_id + ':', err.message);
+                    console.error('[Sync] Greška: ' + item.table + ' ' + item.action + ' ' + item.record_id + ' →', err.message);
                     await App.DB.db.sync_queue.update(item.id, {
                         status:     'failed',
                         retries:    (item.retries || 0) + 1,
