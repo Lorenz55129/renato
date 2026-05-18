@@ -6,65 +6,41 @@
 (function () {
     'use strict';
 
-    // ----- localStorage prefix -----
-    const STORAGE_PREFIX = 'renato.';
+    // ----- Storage – IndexedDB via Dexie (in-memory cache za sync API) -----
+    const Storage = (function () {
+        const cache = {};
+        const TABLES = ['kupci', 'narudzbe', 'ponude', 'termini', 'edukacije'];
 
-    // ----- localStorage pomoćne funkcije -----
-    const Storage = {
-        /**
-         * Spremi podatke u localStorage pod zadanim ključem.
-         * @param {string} key - ključ (bez prefiksa)
-         * @param {*} value - vrijednost (bit će serijalizirana u JSON)
-         */
-        save(key, value) {
-            try {
-                localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
-                return true;
-            } catch (err) {
-                console.error('Storage.save error:', err);
-                return false;
+        async function initCache() {
+            for (const t of TABLES) {
+                cache[t] = await App.DB.loadAll(t);
             }
-        },
+        }
 
-        /**
-         * Učitaj podatke iz localStorage.
-         * @param {string} key - ključ (bez prefiksa)
-         * @param {*} fallback - vrijednost ako ključ ne postoji
-         */
-        load(key, fallback = null) {
-            try {
-                const raw = localStorage.getItem(STORAGE_PREFIX + key);
-                if (raw === null) return fallback;
-                return JSON.parse(raw);
-            } catch (err) {
-                console.error('Storage.load error:', err);
-                return fallback;
-            }
-        },
+        function load(key, defaultValue) {
+            if (cache[key] === undefined) return defaultValue !== undefined ? defaultValue : [];
+            return cache[key];
+        }
 
-        /**
-         * Obriši ključ iz localStorage.
-         * @param {string} key - ključ (bez prefiksa)
-         */
-        remove(key) {
-            try {
-                localStorage.removeItem(STORAGE_PREFIX + key);
-                return true;
-            } catch (err) {
-                console.error('Storage.remove error:', err);
-                return false;
-            }
-        },
+        async function save(key, value) {
+            cache[key] = value;
+            await App.DB.saveAll(key, value);
+        }
 
-        /**
-         * Generira jedinstveni ID temeljen na vremenu i slučajnom broju.
-         */
-        generateId() {
+        // remove: briše cijelu tablicu iz cache + DB
+        async function remove(key) {
+            cache[key] = [];
+            await App.DB.saveAll(key, []);
+        }
+
+        function generateId() {
             const timestamp = Date.now().toString(36);
             const random = Math.random().toString(36).substring(2, 8);
             return `${timestamp}-${random}`;
         }
-    };
+
+        return { initCache, load, save, remove, generateId };
+    }());
 
     // ----- Navigacija između modula -----
     const Nav = {

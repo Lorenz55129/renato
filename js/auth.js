@@ -48,7 +48,10 @@
     if (header) header.classList.add('hidden');
   }
 
-  function showApp() {
+  async function showApp() {
+    await App.DB.migrateFromLocalStorage();
+    await App.Storage.initCache();
+
     document.getElementById('login-screen').classList.add('hidden');
     const nav = document.querySelector('.bottom-nav');
     if (nav) nav.classList.remove('hidden');
