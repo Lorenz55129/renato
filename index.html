@@ -36,6 +36,10 @@
 
     <header class="app-header">
         <h1 class="app-title">Renato Stolarija</h1>
+        <span class="sync-indicator sync-idle" id="sync-indicator" title="Status sinkronizacije">
+            <span class="sync-dot"></span>
+            <span class="sync-label">Online</span>
+        </span>
     </header>
 
     <main class="app-main" id="app-main">
@@ -124,6 +128,12 @@
                         <button type="button" class="menu-item" data-target="edukacije">
                             <span class="menu-item-label">Edukacije</span>
                             <span class="menu-item-arrow" aria-hidden="true">›</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button" class="menu-item" data-action="sync-now">
+                            <span class="menu-item-label">Sinkronizacija sad</span>
+                            <span class="menu-item-arrow" aria-hidden="true">↻</span>
                         </button>
                     </li>
                     <li>
@@ -251,6 +261,7 @@
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/db.js"></script>
+    <script src="js/sync.js"></script>
     <script src="js/app.js"></script>
     <script src="js/kupci.js"></script>
     <script src="js/narudzbe.js"></script>

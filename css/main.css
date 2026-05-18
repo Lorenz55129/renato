@@ -87,10 +87,38 @@ img {
     color: var(--color-cream);
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     padding: 0 16px;
     box-shadow: var(--shadow-md);
     z-index: 100;
+}
+
+/* ----- Sync indikator ----- */
+.sync-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    color: var(--color-cream);
+    padding: 3px 8px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.12);
+    white-space: nowrap;
+}
+.sync-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #888;
+    flex-shrink: 0;
+}
+.sync-idle .sync-dot    { background: #4ade80; }
+.sync-syncing .sync-dot { background: #fbbf24; animation: sync-pulse 1s ease-in-out infinite; }
+.sync-error .sync-dot   { background: #ef4444; }
+.sync-offline .sync-dot { background: #888; }
+@keyframes sync-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.35; }
 }
 
 .app-title {

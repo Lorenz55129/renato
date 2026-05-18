@@ -13,6 +13,11 @@
       btn.addEventListener('click', () => App.Nav.show('change-password'));
     });
 
+    // Više menu: Sinkronizacija sad
+    document.querySelectorAll('.menu-item[data-action="sync-now"]').forEach(btn => {
+      btn.addEventListener('click', handleSyncNow);
+    });
+
     // Više menu: Odjavi se
     document.querySelectorAll('.menu-item[data-action="logout"]').forEach(btn => {
       btn.addEventListener('click', handleLogout);
@@ -50,6 +55,7 @@
 
   async function showApp() {
     await App.DB.migrateFromLocalStorage();
+    await App.Sync.syncFromServer();
     await App.Storage.initCache();
 
     document.getElementById('login-screen').classList.add('hidden');
@@ -80,6 +86,15 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Prijavi se';
+    }
+  }
+
+  async function handleSyncNow() {
+    const result = await App.Sync.syncFromServer();
+    if (result.ok) {
+      // Osvježi trenutni modul nakon synca
+      const event = new CustomEvent('module:shown', { detail: { module: App.Nav.currentModule } });
+      document.dispatchEvent(event);
     }
   }
 
