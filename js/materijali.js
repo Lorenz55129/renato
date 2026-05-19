@@ -186,21 +186,31 @@
         renderKatalogList(container.querySelector('#mat-katalog-list'), katalog);
     }
 
-    function renderKatalogList(listEl, katalog) {
-        const q = state.katalogSearch.toLowerCase();
-        let items = katalog;
-
-        if (state.katalogDobavljac  !== 'sve') items = items.filter(m => m.dobavljac_id === state.katalogDobavljac);
-        if (state.katalogMarka      !== 'sve') items = items.filter(m => m.dobavljac    === state.katalogMarka);
-        if (state.katalogKategorija !== 'sve') items = items.filter(m => m.kategorija   === state.katalogKategorija);
-        // debljina: loose equality (state may hold string or number)
-        if (state.katalogDebljina   !== 'sve') items = items.filter(m => m.debljina    == state.katalogDebljina);
-        if (q) items = items.filter(m =>
+    // ---- Shared filter function (used by main katalog + modal) ----
+    function filterKatalogItems(items, filters) {
+        let r = items;
+        const q = (filters.q || '').toLowerCase();
+        if (filters.dobavljac  && filters.dobavljac  !== 'sve') r = r.filter(m => m.dobavljac_id === filters.dobavljac);
+        if (filters.marka      && filters.marka      !== 'sve') r = r.filter(m => m.dobavljac    === filters.marka);
+        if (filters.kategorija && filters.kategorija !== 'sve') r = r.filter(m => m.kategorija   === filters.kategorija);
+        if (filters.debljina   && filters.debljina   !== 'sve') r = r.filter(m => m.debljina    == filters.debljina);
+        if (q) r = r.filter(m =>
             (m.naziv    || '').toLowerCase().includes(q) ||
             (m.sifra    || '').toLowerCase().includes(q) ||
             (m.dobavljac|| '').toLowerCase().includes(q) ||
             (m.struktura|| '').toLowerCase().includes(q)
         );
+        return r;
+    }
+
+    function renderKatalogList(listEl, katalog) {
+        const items = filterKatalogItems(katalog, {
+            dobavljac:  state.katalogDobavljac,
+            marka:      state.katalogMarka,
+            kategorija: state.katalogKategorija,
+            debljina:   state.katalogDebljina,
+            q:          state.katalogSearch,
+        });
 
         if (!items.length) {
             listEl.innerHTML = katalog.length === 0
@@ -217,15 +227,17 @@
         `;
     }
 
-    function renderKatalogCard(m) {
+    // mapOverride: optionaler eigener Map (für Modal), sonst globaler dobavljacMap
+    function renderKatalogCard(m, mapOverride) {
+        const dmap   = mapOverride !== undefined ? mapOverride : dobavljacMap;
         const hasAbs = m.abs_08 != null || m.abs_2 != null;
 
         // Zeile 1: Šifra · Struktura (lijevo) | Naziv (sredina, bold) | Marka (desno, sivo)
         const sifraStruktura = [m.sifra, m.struktura].filter(Boolean).map(esc).join(' · ');
 
         // Zeile 2: Lieferant-Name · Katalog-Naziv · Debljina · Format
-        const lieferantName = m.dobavljac_id && dobavljacMap[m.dobavljac_id]
-            ? `<span class="mat-lieferant-tag">${esc(dobavljacMap[m.dobavljac_id])}</span>`
+        const lieferantName = m.dobavljac_id && dmap[m.dobavljac_id]
+            ? `<span class="mat-lieferant-tag">${esc(dmap[m.dobavljac_id])}</span>`
             : null;
         const meta2Parts = [
             lieferantName,
@@ -242,7 +254,7 @@
         ].filter(Boolean).join(' &nbsp;·&nbsp; ') : '';
 
         return `
-            <li class="mat-katalog-item">
+            <li class="mat-katalog-item" data-id="${esc(m.id)}">
                 <div class="mat-item-body">
                     <div class="mat-item-row1">
                         ${sifraStruktura ? `<span class="mat-item-sifra-str">${sifraStruktura}</span>` : ''}
@@ -386,11 +398,19 @@
     // ============================================================
     async function openAddModal(narudzbaId) {
         return new Promise(async (resolve) => {
+            // Load data upfront (katalog + dobavljaci za prikaz naziva)
+            const [katalog, dobavljaciDB] = await Promise.all([
+                App.DB.loadAll('materijali_katalog'),
+                App.DB.loadAll('dobavljaci')
+            ]);
+            const localDobavljacMap = {};
+            dobavljaciDB.forEach(d => { localDobavljacMap[d.id] = d.naziv; });
+
+            // Lokalni filter-state za modal (neovisno od glavnog katalog-statea)
+            const mf = { dobavljac: 'sve', marka: 'sve', kategorija: 'sve', debljina: 'sve', q: '' };
+
             const overlay = document.createElement('div');
             overlay.className = 'modal-overlay mat-modal-overlay';
-
-            const katalog = await App.DB.loadAll('materijali_katalog');
-
             overlay.innerHTML = `
                 <div class="modal mat-modal">
                     <div class="modal-header">
@@ -418,7 +438,7 @@
                 overlay.querySelectorAll('.mat-modal-tab').forEach(t => {
                     t.classList.toggle('active', t.dataset.modalTab === activeTab);
                 });
-                if (activeTab === 'katalog') renderModalKatalog(body, katalog);
+                if (activeTab === 'katalog') renderModalKatalog(body);
                 else renderModalRucni(body, selectedKatalog);
             }
 
@@ -434,64 +454,115 @@
                 resolve(null);
             });
 
-            // ---- Katalog-Tab ----
-            function renderModalKatalog(body, items) {
+            // ---- Lista katalog-stavki (bez ponovnog rendera filtera) ----
+            function refreshModalList() {
+                const listEl = document.getElementById('mat-modal-katalog-items');
+                if (!listEl) return;
+                const filtered = filterKatalogItems(katalog, mf);
+                const display  = (!mf.q && filtered.length > 80) ? filtered.slice(0, 80) : filtered;
+
+                listEl.innerHTML = display.length === 0
+                    ? '<li class="mat-modal-empty">Nema rezultata.</li>'
+                    : display.map(m => renderKatalogCard(m, localDobavljacMap)).join('');
+
+                listEl.querySelectorAll('.mat-katalog-item[data-id]').forEach(li => {
+                    li.addEventListener('click', () => {
+                        selectedKatalog = katalog.find(x => x.id === li.dataset.id);
+                        activeTab = 'rucni';
+                        renderModalTab();
+                    });
+                });
+            }
+
+            // ---- Katalog-Tab s 4 filtera ----
+            function renderModalKatalog(body) {
+                // Kontekstualni filter-opcije (isti reset-logik kao u glavnom katalogu)
+                const forMarka = mf.dobavljac === 'sve' ? katalog
+                    : katalog.filter(m => m.dobavljac_id === mf.dobavljac);
+                const marke    = [...new Set(forMarka.map(m => m.dobavljac).filter(Boolean))].sort();
+
+                const forKat   = mf.marka === 'sve' ? forMarka
+                    : forMarka.filter(m => m.dobavljac === mf.marka);
+                const kategorije = [...new Set(forKat.map(m => m.kategorija).filter(Boolean))].sort();
+
+                const dobavljacIds = [...new Set(katalog.map(m => m.dobavljac_id).filter(Boolean))];
+                const dobavljaciF  = dobavljacIds.map(id => ({
+                    id, naziv: localDobavljacMap[id] || id
+                })).sort((a, b) => a.naziv.localeCompare(b.naziv));
+
+                const debljine = [...new Set(katalog.map(m => m.debljina).filter(v => v != null))]
+                                  .sort((a, b) => a - b);
+
+                const pill = (fld, val, label) =>
+                    `<button type="button" class="mat-filter-btn mat-filter-sm ${mf[fld] == val || (val === 'sve' && mf[fld] === 'sve') ? 'active' : ''}"
+                             data-mf="${fld}" data-val="${esc(String(val))}">${esc(label)}</button>`;
+
                 body.innerHTML = `
                     <div class="mat-modal-search-row">
                         <input type="search" class="form-input mat-modal-search"
-                               placeholder="Pretraži katalog..." autocomplete="off">
+                               placeholder="Pretraži naziv, šifra, marka..." autocomplete="off"
+                               value="${esc(mf.q)}">
+                    </div>
+                    <div class="mat-modal-filters">
+                        ${dobavljaciF.length > 0 ? `
+                        <div class="mat-modal-filter-group">
+                            <span class="mat-modal-filter-label">Dobavljač:</span>
+                            <div class="mat-modal-filter-pills">
+                                ${pill('dobavljac','sve','Sve')}
+                                ${dobavljaciF.map(d => pill('dobavljac', d.id, d.naziv)).join('')}
+                            </div>
+                        </div>` : ''}
+                        ${marke.length > 0 ? `
+                        <div class="mat-modal-filter-group">
+                            <span class="mat-modal-filter-label">Marka:</span>
+                            <div class="mat-modal-filter-pills">
+                                ${pill('marka','sve','Sve')}
+                                ${marke.map(mk => pill('marka', mk, mk)).join('')}
+                            </div>
+                        </div>` : ''}
+                        ${kategorije.length > 0 ? `
+                        <div class="mat-modal-filter-group">
+                            <span class="mat-modal-filter-label">Kategorija:</span>
+                            <div class="mat-modal-filter-pills">
+                                ${pill('kategorija','sve','Sve')}
+                                ${kategorije.map(k => pill('kategorija', k, k)).join('')}
+                            </div>
+                        </div>` : ''}
+                        ${debljine.length > 0 ? `
+                        <div class="mat-modal-filter-group">
+                            <span class="mat-modal-filter-label">Debljina:</span>
+                            <div class="mat-modal-filter-pills">
+                                ${pill('debljina','sve','Sve')}
+                                ${debljine.map(d => pill('debljina', d, d + ' mm')).join('')}
+                            </div>
+                        </div>` : ''}
                     </div>
                     <ul class="mat-modal-katalog-list" id="mat-modal-katalog-items"></ul>
                 `;
-                const listEl  = body.querySelector('#mat-modal-katalog-items');
-                const searchEl = body.querySelector('.mat-modal-search');
 
-                function filterAndRender() {
-                    const q = searchEl.value.toLowerCase();
-                    const filtered = q
-                        ? items.filter(m =>
-                            (m.naziv    || '').toLowerCase().includes(q) ||
-                            (m.sifra    || '').toLowerCase().includes(q) ||
-                            (m.dobavljac|| '').toLowerCase().includes(q) ||
-                            (m.struktura|| '').toLowerCase().includes(q))
-                        : items.slice(0, 60);
-
-                    listEl.innerHTML = filtered.length === 0
-                        ? '<li class="mat-modal-empty">Nema rezultata.</li>'
-                        : filtered.map(m => {
-                            const hasAbs = m.abs_08 != null || m.abs_2 != null;
-                            const meta = [
-                                m.sifra    ? esc(m.sifra)    : null,
-                                m.dobavljac? esc(m.dobavljac): null,
-                                m.debljina ? `${m.debljina} mm` : null,
-                            ].filter(Boolean).join(' · ');
-                            return `
-                                <li class="mat-modal-katalog-item" data-id="${esc(m.id)}">
-                                    <div class="mat-item-naziv">${esc(m.naziv)}</div>
-                                    <div class="mat-item-meta">
-                                        ${meta ? `<span class="mat-modal-meta">${meta}</span>` : ''}
-                                        ${m.cijena != null ? `<span class="mat-cijena-sm">${formatCijena(m.cijena)} KM/m²</span>` : ''}
-                                        ${hasAbs ? `<span class="mat-abs-pill mat-abs-pill-sm">ABS</span>` : ''}
-                                    </div>
-                                    ${hasAbs ? `<div class="mat-modal-abs-info">
-                                        Odgovarajući ABS:
-                                        ${m.abs_08 != null ? `<span>0,8mm – ${formatCijena(m.abs_08)} KM/m</span>` : ''}
-                                        ${m.abs_2  != null ? `<span>2mm – ${formatCijena(m.abs_2)} KM/m</span>` : ''}
-                                    </div>` : ''}
-                                </li>
-                            `;
-                        }).join('');
-
-                    listEl.querySelectorAll('.mat-modal-katalog-item').forEach(li => {
-                        li.addEventListener('click', () => {
-                            selectedKatalog = items.find(m => m.id === li.dataset.id);
-                            activeTab = 'rucni';
-                            renderModalTab();
-                        });
+                // Filter-pills: promjena → puni re-render taba
+                body.querySelectorAll('[data-mf]').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const f = btn.dataset.mf;
+                        const v = btn.dataset.val;
+                        if (f === 'dobavljac') {
+                            mf.dobavljac = v; mf.marka = 'sve'; mf.kategorija = 'sve';
+                        } else if (f === 'marka') {
+                            mf.marka = v; mf.kategorija = 'sve';
+                        } else {
+                            mf[f] = v;
+                        }
+                        renderModalKatalog(body);
                     });
-                }
-                searchEl.addEventListener('input', filterAndRender);
-                filterAndRender();
+                });
+
+                // Pretraga: samo lista (bez re-rendera filtera)
+                body.querySelector('.mat-modal-search').addEventListener('input', e => {
+                    mf.q = e.target.value;
+                    refreshModalList();
+                });
+
+                refreshModalList();
             }
 
             // ---- Ručni unos Tab ----
@@ -630,5 +701,5 @@
 
     document.addEventListener('DOMContentLoaded', () => init());
     window.App = window.App || {};
-    window.App.Materijali = { openAddModal };
+    window.App.Materijali = { openAddModal, filterKatalogItems, renderKatalogCard };
 }());

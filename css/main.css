@@ -3991,6 +3991,57 @@ body.overlay-open {
     width: 100%;
 }
 
+/* Modal filter area */
+.mat-modal-filters {
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.mat-modal-filter-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 5px;
+}
+
+.mat-modal-filter-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    min-width: 62px;
+    padding-top: 4px;
+    flex-shrink: 0;
+}
+
+.mat-modal-filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+/* Smaller pills for modal filters */
+.mat-filter-sm {
+    font-size: 11px !important;
+    padding: 3px 8px !important;
+    min-height: unset !important;
+    height: auto !important;
+}
+
+/* Items in modal katalog list – use same .mat-katalog-item card, make clickable */
+.mat-modal-katalog-list .mat-katalog-item {
+    cursor: pointer;
+    margin-bottom: 4px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    transition: background 0.1s;
+}
+
+.mat-modal-katalog-list .mat-katalog-item:active {
+    background: var(--color-cream);
+}
+
 .mat-modal-katalog-list {
     list-style: none;
     display: flex;
