@@ -122,6 +122,12 @@
                     </div>
                 </div>
                 <ul class="menu-list">
+                    <li id="menu-korisnici" class="hidden">
+                        <button type="button" class="menu-item" data-target="users">
+                            <span class="menu-item-label">Korisnici</span>
+                            <span class="menu-item-arrow" aria-hidden="true">›</span>
+                        </button>
+                    </li>
                     <li>
                         <button type="button" class="menu-item" data-target="ponude">
                             <span class="menu-item-label">Ponude</span>
@@ -189,6 +195,17 @@
             </div>
             <div class="module-content" id="edukacije-content">
                 <!-- Sadržaj se generira iz js/schulungen.js -->
+            </div>
+        </section>
+
+        <!-- Korisnici modul (dostupan iz "Više", samo admin) -->
+        <section class="module hidden" id="module-users" data-module="users">
+            <header class="module-header module-header-nav">
+                <button class="btn-back" data-target="vise">← Više</button>
+                <h2>Korisnici</h2>
+            </header>
+            <div class="module-content" id="users-content">
+                <!-- Sadržaj se generira iz js/users.js -->
             </div>
         </section>
 
@@ -280,5 +297,6 @@
     <script src="js/galerija.js"></script>
     <script src="js/aufmass.js"></script>
     <script src="js/schulungen.js"></script>
+    <script src="js/users.js"></script>
 </body>
 </html>

@@ -3476,3 +3476,121 @@ body.overlay-open {
 .module-header-nav h2 {
     margin: 0;
 }
+
+/* ----- Korisnici modul ----- */
+.users-toolbar {
+    margin-bottom: 20px;
+}
+
+.users-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.user-card {
+    background-color: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.user-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.user-card-name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-text);
+}
+
+.user-card-username {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+.user-me-label {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: var(--color-text-muted);
+}
+
+.user-role-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+    margin-top: 4px;
+    width: fit-content;
+}
+
+.user-role-admin {
+    background-color: var(--color-gold);
+    color: var(--color-brown-dark);
+}
+
+.user-role-user {
+    background-color: var(--color-cream-dark);
+    color: var(--color-text-muted);
+}
+
+.user-card-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* User form card */
+.user-form.card {
+    background-color: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-sm);
+}
+
+.user-form-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-brown);
+    margin-bottom: 16px;
+}
+
+.user-form-btns {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+/* Kreirao label (za narudžbe, ponude, termini) */
+.kreirao-label {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    margin-top: 4px;
+}
+
+/* Danger button variant */
+.btn-danger {
+    background-color: var(--color-danger);
+    color: var(--color-white);
+    border-radius: var(--radius-sm);
+    padding: 8px 14px;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.btn-danger:active {
+    opacity: 0.85;
+}

@@ -352,4 +352,30 @@
         forcePushAll,
         diagnose
     };
+
+    // ----- Users cache (prikaz display_name u zapisima) -----
+    const Users = (function () {
+        let cache = [];
+
+        async function fetchUsers() {
+            try {
+                const list = await App.Api.apiCall('GET', '/users/list');
+                if (Array.isArray(list)) cache = list;
+            } catch (e) {
+                console.warn('[Users] fetchUsers greška:', e.message);
+            }
+        }
+
+        function getName(userId) {
+            if (!userId) return '—';
+            const u = cache.find(u => u.id === userId);
+            return u ? u.display_name : userId;
+        }
+
+        function getAll() { return [...cache]; }
+
+        return { fetchUsers, getName, getAll };
+    }());
+
+    window.App.Users = Users;
 })();

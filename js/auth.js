@@ -33,11 +33,24 @@
     checkAuth();
   }
 
+  function currentUser() {
+    return App.Api.getUser();
+  }
+
+  function isAdmin() {
+    const user = currentUser();
+    return !!(user && user.role === 'admin');
+  }
+
   async function checkAuth() {
     const token = App.Api.getToken();
     if (!token) { showLogin(); return; }
     try {
-      await App.Api.verify();
+      const result = await App.Api.verify();
+      // Refresh stored user with latest data (role, display_name)
+      if (result && result.user) {
+        localStorage.setItem('renato_user', JSON.stringify(result.user));
+      }
       showApp();
     } catch {
       showLogin();
@@ -71,12 +84,19 @@
     // 4. Cache osvježiti
     await App.Storage.initCache();
 
-    // 5. UI prikazati
+    // 5. Učitaj popis korisnika (za prikaz display_name u zapisima)
+    if (App.Users) await App.Users.fetchUsers();
+
+    // 6. UI prikazati
     document.getElementById('login-screen').classList.add('hidden');
     const nav = document.querySelector('.bottom-nav');
     if (nav) nav.classList.remove('hidden');
     const header = document.querySelector('.app-header');
     if (header) header.classList.remove('hidden');
+
+    // 7. Primijeni vidljivost stavki ovisnih o ulozi
+    applyRoleUI();
+
     App.Nav.show('dashboard');
   }
 
@@ -109,6 +129,15 @@
       // Osvježi trenutni modul nakon synca
       const event = new CustomEvent('module:shown', { detail: { module: App.Nav.currentModule } });
       document.dispatchEvent(event);
+    }
+  }
+
+  function applyRoleUI() {
+    const admin = isAdmin();
+    // Prikaži/sakrij stavke u Više meniju koje su samo za admina
+    const korisEl = document.getElementById('menu-korisnici');
+    if (korisEl) {
+      korisEl.closest('li').classList.toggle('hidden', !admin);
     }
   }
 
@@ -160,5 +189,5 @@
   }
 
   window.App = window.App || {};
-  window.App.Auth = { init, showLogin, showApp };
+  window.App.Auth = { init, showLogin, showApp, currentUser, isAdmin };
 })();
