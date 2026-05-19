@@ -183,12 +183,19 @@
             }
             const data = await resp.json();
 
-            // Sync katalog back to IndexedDB
-            await App.Sync.syncFromServer();
+            // Direkt katalog sa servera dohvatiti i upisati u IndexedDB.
+            // NE koristimo syncFromServer() jer se ona može prekinuti zbog count-konflikta
+            // u nekim od glavnih tablica, pa katalog nikad ne bi bio osvježen.
+            const katalogResp = await fetch('/api/materijali/katalog', {
+                headers: { 'Authorization': 'Bearer ' + App.Api.getToken() }
+            });
+            if (!katalogResp.ok) throw new Error('Greška pri dohvatu kataloga');
+            const noviKatalog = await katalogResp.json();
+            await App.DB.saveAll('materijali_katalog', noviKatalog);
 
-            statusEl.textContent = `✓ Učitano ${data.imported} materijala.`;
+            statusEl.textContent = `✓ Učitano ${noviKatalog.length} materijala.`;
             statusEl.className = 'mat-upload-status mat-upload-ok';
-            setTimeout(() => renderKatalog(container), 1500);
+            setTimeout(() => renderKatalog(container), 1200);
         } catch (err) {
             statusEl.textContent = '✗ Greška: ' + err.message;
             statusEl.className = 'mat-upload-status mat-upload-err';
