@@ -8,11 +8,12 @@
 
     // ---------- State ----------
     const state = {
-        tab:            'katalog',   // 'katalog' | 'nabavka'
-        katalogSearch:  '',
-        katalogDobavljac: 'sve',
+        tab:               'katalog',
+        katalogSearch:     '',
+        katalogDobavljac:  'sve',
         katalogKategorija: 'sve',
-        nabavkaStatus:  'otvoreno',  // 'otvoreno' | 'naruceno' | 'sve'
+        katalogDebljina:   'sve',
+        nabavkaStatus:     'otvoreno',
     };
 
     // ---------- Init ----------
@@ -39,12 +40,8 @@
             </div>
             <div id="mat-tab-content"></div>
         `;
-
         root.querySelectorAll('.mat-tab').forEach(btn => {
-            btn.addEventListener('click', () => {
-                state.tab = btn.dataset.tab;
-                render();
-            });
+            btn.addEventListener('click', () => { state.tab = btn.dataset.tab; render(); });
         });
 
         if (state.tab === 'katalog') renderKatalog(root.querySelector('#mat-tab-content'));
@@ -58,9 +55,10 @@
         container.innerHTML = '<p class="placeholder-hint">Učitavanje...</p>';
         const katalog = await App.DB.loadAll('materijali_katalog');
 
-        // Build filter options
         const dobavljaci = [...new Set(katalog.map(m => m.dobavljac).filter(Boolean))].sort();
         const kategorije = [...new Set(katalog.map(m => m.kategorija).filter(Boolean))].sort();
+        const debljine   = [...new Set(katalog.map(m => m.debljina).filter(v => v != null))]
+                            .sort((a, b) => a - b);
 
         container.innerHTML = `
             <div class="mat-toolbar">
@@ -89,28 +87,37 @@
                                     data-filter="kategorija" data-val="${esc(k)}">${esc(k === 'sve' ? 'Sve' : k)}</button>
                         `).join('')}
                     </div>` : ''}
+                    ${debljine.length > 0 ? `
+                    <div class="mat-filter-group">
+                        <span class="mat-filter-label">Debljina:</span>
+                        <button type="button" class="mat-filter-btn ${state.katalogDebljina === 'sve' ? 'active' : ''}"
+                                data-filter="debljina" data-val="sve">Sve</button>
+                        ${debljine.map(d => `
+                            <button type="button" class="mat-filter-btn ${state.katalogDebljina == d ? 'active' : ''}"
+                                    data-filter="debljina" data-val="${d}">${d} mm</button>
+                        `).join('')}
+                    </div>` : ''}
                 </div>
             </div>
             <div id="mat-katalog-list"></div>
         `;
 
-        // Filter buttons
         container.querySelectorAll('.mat-filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                if (btn.dataset.filter === 'dobavljac') state.katalogDobavljac = btn.dataset.val;
-                else state.katalogKategorija = btn.dataset.val;
+                const f = btn.dataset.filter;
+                if (f === 'dobavljac')  state.katalogDobavljac  = btn.dataset.val;
+                else if (f === 'kategorija') state.katalogKategorija = btn.dataset.val;
+                else if (f === 'debljina')   state.katalogDebljina   = btn.dataset.val;
                 renderKatalog(container);
             });
         });
 
-        // Search input
         const searchEl = container.querySelector('#mat-search');
         searchEl.addEventListener('input', () => {
             state.katalogSearch = searchEl.value;
             renderKatalogList(container.querySelector('#mat-katalog-list'), katalog);
         });
 
-        // File upload
         container.querySelector('#mat-file-input').addEventListener('change', (e) => {
             handleKatalogUpload(e.target.files[0], katalog.length, container);
         });
@@ -122,12 +129,15 @@
         const q = state.katalogSearch.toLowerCase();
         let items = katalog;
 
-        if (state.katalogDobavljac !== 'sve') items = items.filter(m => m.dobavljac === state.katalogDobavljac);
+        if (state.katalogDobavljac  !== 'sve') items = items.filter(m => m.dobavljac  === state.katalogDobavljac);
         if (state.katalogKategorija !== 'sve') items = items.filter(m => m.kategorija === state.katalogKategorija);
+        // debljina: loose equality (state may hold string or number)
+        if (state.katalogDebljina   !== 'sve') items = items.filter(m => m.debljina  == state.katalogDebljina);
         if (q) items = items.filter(m =>
-            (m.naziv || '').toLowerCase().includes(q) ||
-            (m.sifra || '').toLowerCase().includes(q) ||
-            (m.dobavljac || '').toLowerCase().includes(q)
+            (m.naziv    || '').toLowerCase().includes(q) ||
+            (m.sifra    || '').toLowerCase().includes(q) ||
+            (m.dobavljac|| '').toLowerCase().includes(q) ||
+            (m.struktura|| '').toLowerCase().includes(q)
         );
 
         if (!items.length) {
@@ -140,21 +150,48 @@
         listEl.innerHTML = `
             <div class="mat-count">${items.length} stavki</div>
             <ul class="mat-katalog-list">
-                ${items.map(m => `
-                    <li class="mat-katalog-item">
-                        <div class="mat-item-main">
-                            <div class="mat-item-naziv">${esc(m.naziv)}</div>
-                            <div class="mat-item-meta">
-                                ${m.sifra ? `<span class="mat-sifra">${esc(m.sifra)}</span>` : ''}
-                                ${m.dobavljac ? `<span class="mat-dobavljac">${esc(m.dobavljac)}</span>` : ''}
-                                ${m.kategorija ? `<span class="mat-kategorija">${esc(m.kategorija)}</span>` : ''}
-                                ${m.debljina ? `<span class="mat-debljina">${esc(String(m.debljina))} mm</span>` : ''}
-                            </div>
-                        </div>
-                        ${m.cijena != null ? `<div class="mat-item-cijena">${formatCijena(m.cijena)}<span class="mat-cijena-unit"> KM/m²</span></div>` : ''}
-                    </li>
-                `).join('')}
+                ${items.map(m => renderKatalogCard(m)).join('')}
             </ul>
+        `;
+    }
+
+    function renderKatalogCard(m) {
+        const hasAbs = m.abs_08 != null || m.abs_2 != null;
+
+        // Zeile 1: Šifra · Struktura
+        const sifraStruktura = [m.sifra, m.struktura].filter(Boolean).map(esc).join(' · ');
+
+        // Zeile 2: Kategorija · Debljina · Format
+        const meta2 = [
+            m.kategorija ? esc(m.kategorija) : null,
+            m.debljina   ? `${m.debljina} mm` : null,
+            m.format     ? esc(m.format)      : null,
+        ].filter(Boolean).join(' · ');
+
+        // Zeile 3: ABS-Werte
+        const absLine = hasAbs ? [
+            m.abs_08 != null ? `ABS 0,8mm: <strong>${formatCijena(m.abs_08)} KM/m</strong>` : null,
+            m.abs_2  != null ? `ABS 2mm: <strong>${formatCijena(m.abs_2)} KM/m</strong>`    : null,
+        ].filter(Boolean).join(' &nbsp;·&nbsp; ') : '';
+
+        return `
+            <li class="mat-katalog-item">
+                <div class="mat-item-body">
+                    <div class="mat-item-row1">
+                        ${sifraStruktura ? `<span class="mat-item-sifra-str">${sifraStruktura}</span>` : ''}
+                        <span class="mat-item-naziv">${esc(m.naziv)}</span>
+                        ${m.dobavljac ? `<span class="mat-dob-badge">${esc(m.dobavljac)}</span>` : ''}
+                    </div>
+                    ${meta2 ? `<div class="mat-item-row2">${meta2}</div>` : ''}
+                    ${hasAbs  ? `<div class="mat-item-abs">${absLine}</div>` : ''}
+                </div>
+                <div class="mat-item-price-col">
+                    ${m.cijena != null
+                        ? `<div class="mat-item-cijena">${formatCijena(m.cijena)}<span class="mat-cijena-unit"> KM/m²</span></div>`
+                        : ''}
+                    ${hasAbs ? `<span class="mat-abs-pill">ABS</span>` : ''}
+                </div>
+            </li>
         `;
     }
 
@@ -181,11 +218,9 @@
                 const err = await resp.json().catch(() => ({ error: 'Upload greška' }));
                 throw new Error(err.error || 'Upload greška');
             }
-            const data = await resp.json();
+            await resp.json();
 
-            // Direkt katalog sa servera dohvatiti i upisati u IndexedDB.
-            // NE koristimo syncFromServer() jer se ona može prekinuti zbog count-konflikta
-            // u nekim od glavnih tablica, pa katalog nikad ne bi bio osvježen.
+            // Direkt katalog sa servera — NE syncFromServer() (može biti prekinut)
             const katalogResp = await fetch('/api/materijali/katalog', {
                 headers: { 'Authorization': 'Bearer ' + App.Api.getToken() }
             });
@@ -243,28 +278,19 @@
             });
         });
 
-        // Naručeno checkboxes
         container.querySelectorAll('.mat-narudzeno-cb').forEach(cb => {
             cb.addEventListener('change', async () => {
                 const id = cb.dataset.id;
                 const narudzeno = cb.checked ? 1 : 0;
                 try {
                     await App.Api.apiCall('PUT', '/materijali/positions/' + id, {
-                        naziv: cb.dataset.naziv,
+                        naziv:    cb.dataset.naziv,
                         kolicina: parseFloat(cb.dataset.kolicina),
                         jedinica: cb.dataset.jedinica,
                         narudzeno
                     });
-                    // Update local cache
-                    const positions = App.Storage.load('narudzba_materijali', []);
-                    const idx = positions.findIndex(p => p.id === id);
-                    if (idx !== -1) {
-                        const updated = positions.slice();
-                        updated[idx] = { ...updated[idx], narudzeno };
-                        await App.Storage.save('narudzba_materijali', updated);
-                    }
                 } catch (e) {
-                    cb.checked = !cb.checked; // Revert on error
+                    cb.checked = !cb.checked;
                     alert('Greška: ' + e.message);
                 }
             });
@@ -323,14 +349,14 @@
             .replace(/'/g, '&#39;');
     }
 
-    // ============================================================
-    // Modul API za Narudžba-Detailansicht (Dodaj materijal modal)
-    // ============================================================
+    function genId() {
+        return 'mat-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+    }
 
-    /**
-     * Otvara "Dodaj materijal" modal i vraća Promise koji se
-     * resolvira s odabranom/unesenom pozicijom ili null (odustani).
-     */
+    // ============================================================
+    // Dodaj-Modal — vraća Promise<Array|null>
+    // Array može imati 1 poziciju (ploča) ili 2 (ploča + ABS)
+    // ============================================================
     async function openAddModal(narudzbaId) {
         return new Promise(async (resolve) => {
             const overlay = document.createElement('div');
@@ -356,6 +382,10 @@
             let activeTab = 'katalog';
             let selectedKatalog = null;
 
+            function closeModal() {
+                if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            }
+
             function renderModalTab() {
                 const body = overlay.querySelector('#mat-modal-body');
                 overlay.querySelectorAll('.mat-modal-tab').forEach(t => {
@@ -373,10 +403,11 @@
             });
 
             overlay.querySelector('#mat-modal-close').addEventListener('click', () => {
-                document.body.removeChild(overlay);
+                closeModal();
                 resolve(null);
             });
 
+            // ---- Katalog-Tab ----
             function renderModalKatalog(body, items) {
                 body.innerHTML = `
                     <div class="mat-modal-search-row">
@@ -385,31 +416,44 @@
                     </div>
                     <ul class="mat-modal-katalog-list" id="mat-modal-katalog-items"></ul>
                 `;
-                const listEl = body.querySelector('#mat-modal-katalog-items');
+                const listEl  = body.querySelector('#mat-modal-katalog-items');
                 const searchEl = body.querySelector('.mat-modal-search');
 
                 function filterAndRender() {
                     const q = searchEl.value.toLowerCase();
                     const filtered = q
                         ? items.filter(m =>
-                            (m.naziv || '').toLowerCase().includes(q) ||
-                            (m.sifra || '').toLowerCase().includes(q) ||
-                            (m.dobavljac || '').toLowerCase().includes(q))
-                        : items.slice(0, 50); // show first 50 if no search
+                            (m.naziv    || '').toLowerCase().includes(q) ||
+                            (m.sifra    || '').toLowerCase().includes(q) ||
+                            (m.dobavljac|| '').toLowerCase().includes(q) ||
+                            (m.struktura|| '').toLowerCase().includes(q))
+                        : items.slice(0, 60);
 
                     listEl.innerHTML = filtered.length === 0
-                        ? '<li class="placeholder-hint" style="padding:12px">Nema rezultata.</li>'
-                        : filtered.map(m => `
-                            <li class="mat-modal-katalog-item" data-id="${esc(m.id)}">
-                                <div class="mat-item-naziv">${esc(m.naziv)}</div>
-                                <div class="mat-item-meta">
-                                    ${m.sifra ? `<span class="mat-sifra">${esc(m.sifra)}</span>` : ''}
-                                    ${m.dobavljac ? `<span class="mat-dobavljac">${esc(m.dobavljac)}</span>` : ''}
-                                    ${m.debljina ? `<span class="mat-debljina">${m.debljina} mm</span>` : ''}
-                                    ${m.cijena != null ? `<span class="mat-cijena-sm">${formatCijena(m.cijena)} KM/m²</span>` : ''}
-                                </div>
-                            </li>
-                        `).join('');
+                        ? '<li class="mat-modal-empty">Nema rezultata.</li>'
+                        : filtered.map(m => {
+                            const hasAbs = m.abs_08 != null || m.abs_2 != null;
+                            const meta = [
+                                m.sifra    ? esc(m.sifra)    : null,
+                                m.dobavljac? esc(m.dobavljac): null,
+                                m.debljina ? `${m.debljina} mm` : null,
+                            ].filter(Boolean).join(' · ');
+                            return `
+                                <li class="mat-modal-katalog-item" data-id="${esc(m.id)}">
+                                    <div class="mat-item-naziv">${esc(m.naziv)}</div>
+                                    <div class="mat-item-meta">
+                                        ${meta ? `<span class="mat-modal-meta">${meta}</span>` : ''}
+                                        ${m.cijena != null ? `<span class="mat-cijena-sm">${formatCijena(m.cijena)} KM/m²</span>` : ''}
+                                        ${hasAbs ? `<span class="mat-abs-pill mat-abs-pill-sm">ABS</span>` : ''}
+                                    </div>
+                                    ${hasAbs ? `<div class="mat-modal-abs-info">
+                                        Odgovarajući ABS:
+                                        ${m.abs_08 != null ? `<span>0,8mm – ${formatCijena(m.abs_08)} KM/m</span>` : ''}
+                                        ${m.abs_2  != null ? `<span>2mm – ${formatCijena(m.abs_2)} KM/m</span>` : ''}
+                                    </div>` : ''}
+                                </li>
+                            `;
+                        }).join('');
 
                     listEl.querySelectorAll('.mat-modal-katalog-item').forEach(li => {
                         li.addEventListener('click', () => {
@@ -423,7 +467,10 @@
                 filterAndRender();
             }
 
+            // ---- Ručni unos Tab ----
             function renderModalRucni(body, prefill) {
+                const hasAbs = prefill && (prefill.abs_08 != null || prefill.abs_2 != null);
+
                 body.innerHTML = `
                     <form id="mat-add-form" class="mat-add-form">
                         <div class="form-group">
@@ -454,6 +501,27 @@
                             <label class="form-label" for="maf-napomena">Napomena</label>
                             <input type="text" id="maf-napomena" class="form-input" value="">
                         </div>
+
+                        ${hasAbs ? `
+                        <div class="mat-abs-section">
+                            <div class="mat-abs-section-label">Odgovarajući ABS:</div>
+                            <div class="mat-abs-btns">
+                                ${prefill.abs_08 != null ? `
+                                <button type="button" class="btn mat-abs-add-btn" data-abs="08"
+                                        data-cijena="${prefill.abs_08}"
+                                        data-naziv="${esc('ABS traka 0,8mm – ' + (prefill.naziv || ''))}">
+                                    + Dodaj ABS 0,8mm (${formatCijena(prefill.abs_08)} KM/m)
+                                </button>` : ''}
+                                ${prefill.abs_2 != null ? `
+                                <button type="button" class="mat-abs-add-btn" data-abs="2"
+                                        data-cijena="${prefill.abs_2}"
+                                        data-naziv="${esc('ABS traka 2mm – ' + (prefill.naziv || ''))}">
+                                    + Dodaj ABS 2mm (${formatCijena(prefill.abs_2)} KM/m)
+                                </button>` : ''}
+                            </div>
+                        </div>` : ''}
+
+                        <div id="maf-abs-chosen" class="mat-abs-chosen-list"></div>
                         <div id="maf-error" class="form-error hidden"></div>
                         <div class="mat-modal-btns">
                             <button type="submit" class="btn btn-primary">Spremi</button>
@@ -462,34 +530,69 @@
                     </form>
                 `;
 
+                // Track additional ABS positions chosen
+                const chosenAbs = [];
+
+                body.querySelectorAll('.mat-abs-add-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const absNaziv  = btn.dataset.naziv;
+                        const absCijena = parseFloat(btn.dataset.cijena) || null;
+                        // Prevent duplicates
+                        if (chosenAbs.find(a => a.naziv === absNaziv)) return;
+                        chosenAbs.push({
+                            naziv:     absNaziv,
+                            cijena:    absCijena,
+                            dobavljac: prefill?.dobavljac || null,
+                            katalog_id: null,
+                            sifra:     null,
+                            debljina:  null,
+                        });
+                        btn.disabled = true;
+                        btn.textContent = '✓ ' + btn.textContent.replace('+ ', '');
+                        btn.classList.add('mat-abs-add-btn-done');
+                        // Show label in chosen list
+                        const tag = document.createElement('div');
+                        tag.className = 'mat-abs-chosen-tag';
+                        tag.textContent = absNaziv;
+                        body.querySelector('#maf-abs-chosen').appendChild(tag);
+                    });
+                });
+
                 body.querySelector('#maf-cancel').addEventListener('click', () => {
-                    document.body.removeChild(overlay);
+                    closeModal();
                     resolve(null);
                 });
 
                 body.querySelector('#mat-add-form').addEventListener('submit', (e) => {
                     e.preventDefault();
-                    const naziv = body.querySelector('#maf-naziv').value.trim();
+                    const naziv    = body.querySelector('#maf-naziv').value.trim();
                     const kolicina = parseFloat(body.querySelector('#maf-kolicina').value);
                     if (!naziv || isNaN(kolicina) || kolicina <= 0) {
                         body.querySelector('#maf-error').textContent = 'Naziv i količina su obavezni.';
                         body.querySelector('#maf-error').classList.remove('hidden');
                         return;
                     }
-                    const cijena = parseFloat(body.querySelector('#maf-cijena').value) || null;
-                    const result = {
+                    const cijena = parseFloat(body.querySelector('#maf-cijena').value);
+                    const main = {
                         naziv,
                         kolicina,
                         jedinica:   body.querySelector('#maf-jedinica').value,
                         cijena:     isNaN(cijena) ? null : cijena,
                         napomena:   body.querySelector('#maf-napomena').value.trim() || null,
-                        katalog_id: prefill?.id || null,
+                        katalog_id: prefill?.id    || null,
                         sifra:      prefill?.sifra || null,
                         dobavljac:  prefill?.dobavljac || null,
-                        debljina:   prefill?.debljina || null,
+                        debljina:   prefill?.debljina  || null,
                     };
-                    document.body.removeChild(overlay);
-                    resolve(result);
+                    // Build ABS positions: kolicina will be set in narudzbe.js (user may want different amount)
+                    const absPositions = chosenAbs.map(a => ({
+                        ...a,
+                        kolicina: 1,
+                        jedinica: 'm',
+                        napomena: null,
+                    }));
+                    closeModal();
+                    resolve([main, ...absPositions]);
                 });
             }
 

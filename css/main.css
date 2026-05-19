@@ -4111,6 +4111,184 @@ body.overlay-open {
     flex-shrink: 0;
 }
 
+/* --- Katalog katalog-card (full card layout) --- */
+.mat-item-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.mat-item-row1 {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+}
+
+.mat-item-sifra-str {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.mat-item-naziv {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--color-text);
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.mat-dob-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: var(--color-cream-dark);
+    color: var(--color-brown);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.mat-item-row2 {
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.mat-item-abs {
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+.mat-item-price-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: 8px;
+}
+
+/* Gold ABS pill badge */
+.mat-abs-pill {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: var(--color-gold);
+    color: var(--color-brown-dark);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.mat-abs-pill-sm {
+    font-size: 10px;
+    padding: 1px 6px;
+}
+
+/* --- Modal ABS info & add buttons --- */
+.mat-modal-abs-info {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 3px;
+    line-height: 1.4;
+}
+
+.mat-modal-empty {
+    padding: 16px;
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 14px;
+    list-style: none;
+}
+
+.mat-modal-meta {
+    font-size: 11px;
+    color: var(--color-text-muted);
+}
+
+.mat-item-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    margin-top: 2px;
+}
+
+/* ABS add-buttons section in Ručni unos form */
+.mat-abs-section {
+    background: var(--color-cream);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin-top: 4px;
+}
+
+.mat-abs-section-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    margin-bottom: 8px;
+}
+
+.mat-abs-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.mat-abs-add-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-brown);
+    background: var(--color-white);
+    border: 1px solid var(--color-gold);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s, opacity 0.15s;
+}
+
+.mat-abs-add-btn:active {
+    background: var(--color-cream);
+}
+
+.mat-abs-add-btn.mat-abs-add-btn-done {
+    opacity: 0.5;
+    cursor: default;
+    background: var(--color-cream-dark);
+    border-color: var(--color-border);
+    pointer-events: none;
+}
+
+.mat-abs-chosen-list {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.mat-abs-chosen-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    padding: 3px 10px;
+    background: var(--color-gold);
+    color: var(--color-brown-dark);
+    border-radius: 12px;
+    font-weight: 600;
+}
+
 /* --- Print styles --- */
 @media print {
     .app-header,

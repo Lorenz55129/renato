@@ -650,22 +650,28 @@
             alert('Materijali modul nije učitan.');
             return;
         }
-        const result = await window.App.Materijali.openAddModal(narudzbaId);
-        if (!result) return;
+        const results = await window.App.Materijali.openAddModal(narudzbaId);
+        if (!results || !results.length) return;
 
-        const id = 'mat-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
-        try {
-            await App.Api.apiCall('POST', '/materijali/positions', {
-                id,
-                narudzba_id: narudzbaId,
-                ...result,
-                narudzeno: 0,
-                created_by: App.Auth.currentUser()?.id || null
-            });
-            loadMaterijaliPozicije(narudzbaId, container);
-        } catch (e) {
-            alert('Greška pri dodavanju: ' + e.message);
+        const userId = App.Auth.currentUser()?.id || null;
+        let anyError = false;
+        for (const result of results) {
+            const id = 'mat-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+            try {
+                await App.Api.apiCall('POST', '/materijali/positions', {
+                    id,
+                    narudzba_id: narudzbaId,
+                    ...result,
+                    narudzeno: 0,
+                    created_by: userId
+                });
+            } catch (e) {
+                alert('Greška pri dodavanju: ' + e.message);
+                anyError = true;
+                break;
+            }
         }
+        loadMaterijaliPozicije(narudzbaId, container);
     }
 
     function saveMjereField(narudzbaId, inputEl) {
