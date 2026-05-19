@@ -8,12 +8,13 @@
 
     // ---------- State ----------
     const state = {
-        tab:              'katalog',
-        katalogSearch:    '',
-        katalogDobavljac: 'sve',   // 'sve' ili dobavljac_id (Lieferant)
-        katalogMarka:     'sve',   // 'sve' ili m.dobavljac vrijednost (Hersteller/brand)
-        katalogDebljina:  'sve',
-        nabavkaStatus:    'otvoreno',
+        tab:               'katalog',
+        katalogSearch:     '',
+        katalogDobavljac:  'sve',   // 'sve' ili dobavljac_id (Lieferant)
+        katalogMarka:      'sve',   // 'sve' ili m.dobavljac (Hersteller/brand)
+        katalogKategorija: 'sve',   // 'sve' ili m.kategorija
+        katalogDebljina:   'sve',
+        nabavkaStatus:     'otvoreno',
     };
 
     // Cache dobavljač ID → naziv za prikaz u karticama
@@ -72,11 +73,17 @@
             naziv: dobavljacMap[id] || id,
         })).sort((a, b) => a.naziv.localeCompare(b.naziv));
 
-        // Marka filter (Hersteller/brand): po m.dobavljac, samo za trenutni Lieferant
+        // Marka filter: samo za trenutni Lieferant
         const itemsForMarka = state.katalogDobavljac === 'sve'
             ? katalog
             : katalog.filter(m => m.dobavljac_id === state.katalogDobavljac);
         const marke = [...new Set(itemsForMarka.map(m => m.dobavljac).filter(Boolean))].sort();
+
+        // Kategorija filter: samo za trenutnu Marku (i Lieferant)
+        const itemsForKat = state.katalogMarka === 'sve'
+            ? itemsForMarka
+            : itemsForMarka.filter(m => m.dobavljac === state.katalogMarka);
+        const kategorije = [...new Set(itemsForKat.map(m => m.kategorija).filter(Boolean))].sort();
 
         // Debljina filter
         const debljine = [...new Set(katalog.map(m => m.debljina).filter(v => v != null))]
@@ -112,6 +119,16 @@
                                     data-filter="marka" data-val="${esc(mk)}">${esc(mk)}</button>
                         `).join('')}
                     </div>` : ''}
+                    ${kategorije.length > 0 ? `
+                    <div class="mat-filter-group">
+                        <span class="mat-filter-label">Kategorija:</span>
+                        <button type="button" class="mat-filter-btn ${state.katalogKategorija === 'sve' ? 'active' : ''}"
+                                data-filter="kategorija" data-val="sve">Sve</button>
+                        ${kategorije.map(k => `
+                            <button type="button" class="mat-filter-btn ${state.katalogKategorija === k ? 'active' : ''}"
+                                    data-filter="kategorija" data-val="${esc(k)}">${esc(k)}</button>
+                        `).join('')}
+                    </div>` : ''}
                     ${debljine.length > 0 ? `
                     <div class="mat-filter-group">
                         <span class="mat-filter-label">Debljina:</span>
@@ -131,12 +148,16 @@
             btn.addEventListener('click', () => {
                 const f = btn.dataset.filter;
                 if (f === 'dobavljac') {
-                    state.katalogDobavljac = btn.dataset.val;
-                    state.katalogMarka     = 'sve';   // reset marka pri promjeni lieferanta
+                    state.katalogDobavljac  = btn.dataset.val;
+                    state.katalogMarka      = 'sve';  // reset pri promjeni lieferanta
+                    state.katalogKategorija = 'sve';
                 } else if (f === 'marka') {
-                    state.katalogMarka   = btn.dataset.val;
+                    state.katalogMarka      = btn.dataset.val;
+                    state.katalogKategorija = 'sve';  // reset pri promjeni marke
+                } else if (f === 'kategorija') {
+                    state.katalogKategorija = btn.dataset.val;
                 } else if (f === 'debljina') {
-                    state.katalogDebljina = btn.dataset.val;
+                    state.katalogDebljina   = btn.dataset.val;
                 }
                 renderKatalog(container);
             });
@@ -169,10 +190,11 @@
         const q = state.katalogSearch.toLowerCase();
         let items = katalog;
 
-        if (state.katalogDobavljac !== 'sve') items = items.filter(m => m.dobavljac_id === state.katalogDobavljac);
-        if (state.katalogMarka     !== 'sve') items = items.filter(m => m.dobavljac   === state.katalogMarka);
+        if (state.katalogDobavljac  !== 'sve') items = items.filter(m => m.dobavljac_id === state.katalogDobavljac);
+        if (state.katalogMarka      !== 'sve') items = items.filter(m => m.dobavljac    === state.katalogMarka);
+        if (state.katalogKategorija !== 'sve') items = items.filter(m => m.kategorija   === state.katalogKategorija);
         // debljina: loose equality (state may hold string or number)
-        if (state.katalogDebljina  !== 'sve') items = items.filter(m => m.debljina   == state.katalogDebljina);
+        if (state.katalogDebljina   !== 'sve') items = items.filter(m => m.debljina    == state.katalogDebljina);
         if (q) items = items.filter(m =>
             (m.naziv    || '').toLowerCase().includes(q) ||
             (m.sifra    || '').toLowerCase().includes(q) ||
