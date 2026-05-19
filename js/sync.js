@@ -67,6 +67,15 @@
                 await App.DB.saveAll(t, serverData[t]);
             }
 
+            // Dobavljači – direktni API pozivi, read-only cache
+            try {
+                const dobavljaci = await App.Api.apiCall('GET', '/dobavljaci');
+                await App.DB.saveAll('dobavljaci', dobavljaci);
+                console.info('[Sync] Dobavljači: ' + dobavljaci.length);
+            } catch (de) {
+                console.warn('[Sync] Dobavljači sync preskočen:', de.message);
+            }
+
             // Katalog materijala – upload-only, ne ide kroz queue, sinkronizira se ovdje
             try {
                 const katalog = await App.Api.apiCall('GET', '/materijali/katalog');

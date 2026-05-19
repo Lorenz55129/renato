@@ -7,10 +7,11 @@
     'use strict';
 
     // ---------- State ----------
+    // katalogDobavljac drži dobavljac_id (ne naziv dobavljača/proizvođača)
     const state = {
         tab:               'katalog',
         katalogSearch:     '',
-        katalogDobavljac:  'sve',
+        katalogDobavljac:  'sve',   // 'sve' ili dobavljac_id
         katalogKategorija: 'sve',
         katalogDebljina:   'sve',
         nabavkaStatus:     'otvoreno',
@@ -53,9 +54,18 @@
     // ============================================================
     async function renderKatalog(container) {
         container.innerHTML = '<p class="placeholder-hint">Učitavanje...</p>';
-        const katalog = await App.DB.loadAll('materijali_katalog');
+        const [katalog, dobavljaciDB] = await Promise.all([
+            App.DB.loadAll('materijali_katalog'),
+            App.DB.loadAll('dobavljaci')
+        ]);
 
-        const dobavljaci = [...new Set(katalog.map(m => m.dobavljac).filter(Boolean))].sort();
+        // Dobavljač filter: po dobavljac_id (ne po nazivu proizvođača u katalogu)
+        const dobavljacIds = [...new Set(katalog.map(m => m.dobavljac_id).filter(Boolean))];
+        const dobavljaciFilters = dobavljacIds.map(id => {
+            const d = dobavljaciDB.find(x => x.id === id);
+            return { id, naziv: d ? d.naziv : id };
+        }).sort((a, b) => a.naziv.localeCompare(b.naziv));
+
         const kategorije = [...new Set(katalog.map(m => m.kategorija).filter(Boolean))].sort();
         const debljine   = [...new Set(katalog.map(m => m.debljina).filter(v => v != null))]
                             .sort((a, b) => a - b);
@@ -66,19 +76,20 @@
                     <input type="search" id="mat-search" class="form-input mat-search"
                            placeholder="Pretraži naziv, šifra, dobavljač..."
                            value="${esc(state.katalogSearch)}">
-                    <label class="btn btn-secondary mat-upload-btn" title="Učitaj Excel cjenovnik">
-                        <input type="file" id="mat-file-input" accept=".xlsx" hidden>
-                        ↑ Učitaj cjenovnik
-                    </label>
+                    <button type="button" class="btn btn-secondary mat-upload-btn" id="mat-upload-btn"
+                            title="Učitaj Excel cjenovnik">↑ Učitaj cjenovnik</button>
                 </div>
                 <div class="mat-filters">
+                    ${dobavljaciFilters.length > 0 ? `
                     <div class="mat-filter-group">
                         <span class="mat-filter-label">Dobavljač:</span>
-                        ${['sve', ...dobavljaci].map(d => `
-                            <button type="button" class="mat-filter-btn ${state.katalogDobavljac === d ? 'active' : ''}"
-                                    data-filter="dobavljac" data-val="${esc(d)}">${esc(d === 'sve' ? 'Sve' : d)}</button>
+                        <button type="button" class="mat-filter-btn ${state.katalogDobavljac === 'sve' ? 'active' : ''}"
+                                data-filter="dobavljac" data-val="sve">Sve</button>
+                        ${dobavljaciFilters.map(d => `
+                            <button type="button" class="mat-filter-btn ${state.katalogDobavljac === d.id ? 'active' : ''}"
+                                    data-filter="dobavljac" data-val="${esc(d.id)}">${esc(d.naziv)}</button>
                         `).join('')}
-                    </div>
+                    </div>` : ''}
                     ${kategorije.length > 0 ? `
                     <div class="mat-filter-group">
                         <span class="mat-filter-label">Kategorija:</span>
@@ -105,7 +116,7 @@
         container.querySelectorAll('.mat-filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const f = btn.dataset.filter;
-                if (f === 'dobavljac')  state.katalogDobavljac  = btn.dataset.val;
+                if (f === 'dobavljac')       state.katalogDobavljac  = btn.dataset.val;
                 else if (f === 'kategorija') state.katalogKategorija = btn.dataset.val;
                 else if (f === 'debljina')   state.katalogDebljina   = btn.dataset.val;
                 renderKatalog(container);
@@ -118,8 +129,18 @@
             renderKatalogList(container.querySelector('#mat-katalog-list'), katalog);
         });
 
-        container.querySelector('#mat-file-input').addEventListener('change', (e) => {
-            handleKatalogUpload(e.target.files[0], katalog.length, container);
+        // Upload button → otvori modal iz Dobavljaci modula
+        container.querySelector('#mat-upload-btn').addEventListener('click', async () => {
+            if (window.App && window.App.Dobavljaci) {
+                await App.Dobavljaci.openUploadModal(null);
+                renderKatalog(container);
+            }
+        });
+
+        // Re-render kataloga kad se upload uspješno završi (npr. iz Dobavljači modula)
+        document.addEventListener('materijali:katalog-updated', function onUpdate() {
+            document.removeEventListener('materijali:katalog-updated', onUpdate);
+            renderKatalog(container);
         });
 
         renderKatalogList(container.querySelector('#mat-katalog-list'), katalog);
@@ -129,7 +150,7 @@
         const q = state.katalogSearch.toLowerCase();
         let items = katalog;
 
-        if (state.katalogDobavljac  !== 'sve') items = items.filter(m => m.dobavljac  === state.katalogDobavljac);
+        if (state.katalogDobavljac  !== 'sve') items = items.filter(m => m.dobavljac_id === state.katalogDobavljac);
         if (state.katalogKategorija !== 'sve') items = items.filter(m => m.kategorija === state.katalogKategorija);
         // debljina: loose equality (state may hold string or number)
         if (state.katalogDebljina   !== 'sve') items = items.filter(m => m.debljina  == state.katalogDebljina);
@@ -195,47 +216,7 @@
         `;
     }
 
-    async function handleKatalogUpload(file, currentCount, container) {
-        if (!file) return;
-        const ok = confirm(`Trenutni katalog (${currentCount} stavki) će biti zamijenjen novim. Nastaviti?`);
-        if (!ok) return;
-
-        const statusEl = document.createElement('div');
-        statusEl.className = 'mat-upload-status';
-        statusEl.textContent = 'Učitavanje...';
-        container.querySelector('.mat-toolbar').appendChild(statusEl);
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        try {
-            const resp = await fetch('/api/materijali/katalog/upload', {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + App.Api.getToken() },
-                body: formData
-            });
-            if (!resp.ok) {
-                const err = await resp.json().catch(() => ({ error: 'Upload greška' }));
-                throw new Error(err.error || 'Upload greška');
-            }
-            await resp.json();
-
-            // Direkt katalog sa servera — NE syncFromServer() (može biti prekinut)
-            const katalogResp = await fetch('/api/materijali/katalog', {
-                headers: { 'Authorization': 'Bearer ' + App.Api.getToken() }
-            });
-            if (!katalogResp.ok) throw new Error('Greška pri dohvatu kataloga');
-            const noviKatalog = await katalogResp.json();
-            await App.DB.saveAll('materijali_katalog', noviKatalog);
-
-            statusEl.textContent = `✓ Učitano ${noviKatalog.length} materijala.`;
-            statusEl.className = 'mat-upload-status mat-upload-ok';
-            setTimeout(() => renderKatalog(container), 1200);
-        } catch (err) {
-            statusEl.textContent = '✗ Greška: ' + err.message;
-            statusEl.className = 'mat-upload-status mat-upload-err';
-        }
-    }
+    // handleKatalogUpload je preseljen u js/dobavljaci.js (openUploadModal)
 
     // ============================================================
     // LISTA NABAVKE TAB
@@ -576,13 +557,14 @@
                     const main = {
                         naziv,
                         kolicina,
-                        jedinica:   body.querySelector('#maf-jedinica').value,
-                        cijena:     isNaN(cijena) ? null : cijena,
-                        napomena:   body.querySelector('#maf-napomena').value.trim() || null,
-                        katalog_id: prefill?.id    || null,
-                        sifra:      prefill?.sifra || null,
-                        dobavljac:  prefill?.dobavljac || null,
-                        debljina:   prefill?.debljina  || null,
+                        jedinica:      body.querySelector('#maf-jedinica').value,
+                        cijena:        isNaN(cijena) ? null : cijena,
+                        napomena:      body.querySelector('#maf-napomena').value.trim() || null,
+                        katalog_id:    prefill?.id          || null,
+                        sifra:         prefill?.sifra       || null,
+                        dobavljac:     prefill?.dobavljac   || null,
+                        dobavljac_id:  prefill?.dobavljac_id || null,
+                        debljina:      prefill?.debljina    || null,
                     };
                     // Build ABS positions: kolicina will be set in narudzbe.js (user may want different amount)
                     const absPositions = chosenAbs.map(a => ({

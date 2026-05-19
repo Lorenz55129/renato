@@ -31,6 +31,18 @@
         materijali_katalog:   'id, dobavljac, kategorija',
         narudzba_materijali:  'id, narudzba_id, narudzeno'
     });
+    db.version(4).stores({
+        kupci:                'id',
+        narudzbe:             'id',
+        ponude:               'id',
+        termini:              'id',
+        edukacije:            'id',
+        sync_queue:           '++id, table, record_id, action, timestamp, status',
+        meta:                 'key',
+        materijali_katalog:   'id, dobavljac, kategorija, dobavljac_id, katalog_naziv',
+        narudzba_materijali:  'id, narudzba_id, narudzeno, dobavljac_id',
+        dobavljaci:           'id'
+    });
 
     async function loadAll(table) {
         return await db.table(table).toArray();
@@ -65,7 +77,8 @@
             db.sync_queue.clear(),
             db.meta.clear(),
             db.materijali_katalog.clear(),
-            db.narudzba_materijali.clear()
+            db.narudzba_materijali.clear(),
+            db.dobavljaci.clear()
         ]);
     }
 
