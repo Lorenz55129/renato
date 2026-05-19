@@ -7,15 +7,17 @@
     'use strict';
 
     // ---------- State ----------
-    // katalogDobavljac drži dobavljac_id (ne naziv dobavljača/proizvođača)
     const state = {
-        tab:               'katalog',
-        katalogSearch:     '',
-        katalogDobavljac:  'sve',   // 'sve' ili dobavljac_id
-        katalogKategorija: 'sve',
-        katalogDebljina:   'sve',
-        nabavkaStatus:     'otvoreno',
+        tab:              'katalog',
+        katalogSearch:    '',
+        katalogDobavljac: 'sve',   // 'sve' ili dobavljac_id (Lieferant)
+        katalogMarka:     'sve',   // 'sve' ili m.dobavljac vrijednost (Hersteller/brand)
+        katalogDebljina:  'sve',
+        nabavkaStatus:    'otvoreno',
     };
+
+    // Cache dobavljač ID → naziv za prikaz u karticama
+    let dobavljacMap = {};
 
     // ---------- Init ----------
     function init() {
@@ -59,22 +61,32 @@
             App.DB.loadAll('dobavljaci')
         ]);
 
-        // Dobavljač filter: po dobavljac_id (ne po nazivu proizvođača u katalogu)
-        const dobavljacIds = [...new Set(katalog.map(m => m.dobavljac_id).filter(Boolean))];
-        const dobavljaciFilters = dobavljacIds.map(id => {
-            const d = dobavljaciDB.find(x => x.id === id);
-            return { id, naziv: d ? d.naziv : id };
-        }).sort((a, b) => a.naziv.localeCompare(b.naziv));
+        // Gradi dobavljacMap (id → naziv) za prikaz u karticama
+        dobavljacMap = {};
+        dobavljaciDB.forEach(d => { dobavljacMap[d.id] = d.naziv; });
 
-        const kategorije = [...new Set(katalog.map(m => m.kategorija).filter(Boolean))].sort();
-        const debljine   = [...new Set(katalog.map(m => m.debljina).filter(v => v != null))]
-                            .sort((a, b) => a - b);
+        // Lieferant filter (Dobavljač): po dobavljac_id
+        const dobavljacIds = [...new Set(katalog.map(m => m.dobavljac_id).filter(Boolean))];
+        const dobavljaciFilters = dobavljacIds.map(id => ({
+            id,
+            naziv: dobavljacMap[id] || id,
+        })).sort((a, b) => a.naziv.localeCompare(b.naziv));
+
+        // Marka filter (Hersteller/brand): po m.dobavljac, samo za trenutni Lieferant
+        const itemsForMarka = state.katalogDobavljac === 'sve'
+            ? katalog
+            : katalog.filter(m => m.dobavljac_id === state.katalogDobavljac);
+        const marke = [...new Set(itemsForMarka.map(m => m.dobavljac).filter(Boolean))].sort();
+
+        // Debljina filter
+        const debljine = [...new Set(katalog.map(m => m.debljina).filter(v => v != null))]
+                          .sort((a, b) => a - b);
 
         container.innerHTML = `
             <div class="mat-toolbar">
                 <div class="mat-search-row">
                     <input type="search" id="mat-search" class="form-input mat-search"
-                           placeholder="Pretraži naziv, šifra, dobavljač..."
+                           placeholder="Pretraži naziv, šifra, marka..."
                            value="${esc(state.katalogSearch)}">
                     <button type="button" class="btn btn-secondary mat-upload-btn" id="mat-upload-btn"
                             title="Učitaj Excel cjenovnik">↑ Učitaj cjenovnik</button>
@@ -90,12 +102,14 @@
                                     data-filter="dobavljac" data-val="${esc(d.id)}">${esc(d.naziv)}</button>
                         `).join('')}
                     </div>` : ''}
-                    ${kategorije.length > 0 ? `
+                    ${marke.length > 0 ? `
                     <div class="mat-filter-group">
-                        <span class="mat-filter-label">Kategorija:</span>
-                        ${['sve', ...kategorije].map(k => `
-                            <button type="button" class="mat-filter-btn ${state.katalogKategorija === k ? 'active' : ''}"
-                                    data-filter="kategorija" data-val="${esc(k)}">${esc(k === 'sve' ? 'Sve' : k)}</button>
+                        <span class="mat-filter-label">Marka:</span>
+                        <button type="button" class="mat-filter-btn ${state.katalogMarka === 'sve' ? 'active' : ''}"
+                                data-filter="marka" data-val="sve">Sve</button>
+                        ${marke.map(mk => `
+                            <button type="button" class="mat-filter-btn ${state.katalogMarka === mk ? 'active' : ''}"
+                                    data-filter="marka" data-val="${esc(mk)}">${esc(mk)}</button>
                         `).join('')}
                     </div>` : ''}
                     ${debljine.length > 0 ? `
@@ -116,9 +130,14 @@
         container.querySelectorAll('.mat-filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const f = btn.dataset.filter;
-                if (f === 'dobavljac')       state.katalogDobavljac  = btn.dataset.val;
-                else if (f === 'kategorija') state.katalogKategorija = btn.dataset.val;
-                else if (f === 'debljina')   state.katalogDebljina   = btn.dataset.val;
+                if (f === 'dobavljac') {
+                    state.katalogDobavljac = btn.dataset.val;
+                    state.katalogMarka     = 'sve';   // reset marka pri promjeni lieferanta
+                } else if (f === 'marka') {
+                    state.katalogMarka   = btn.dataset.val;
+                } else if (f === 'debljina') {
+                    state.katalogDebljina = btn.dataset.val;
+                }
                 renderKatalog(container);
             });
         });
@@ -150,10 +169,10 @@
         const q = state.katalogSearch.toLowerCase();
         let items = katalog;
 
-        if (state.katalogDobavljac  !== 'sve') items = items.filter(m => m.dobavljac_id === state.katalogDobavljac);
-        if (state.katalogKategorija !== 'sve') items = items.filter(m => m.kategorija === state.katalogKategorija);
+        if (state.katalogDobavljac !== 'sve') items = items.filter(m => m.dobavljac_id === state.katalogDobavljac);
+        if (state.katalogMarka     !== 'sve') items = items.filter(m => m.dobavljac   === state.katalogMarka);
         // debljina: loose equality (state may hold string or number)
-        if (state.katalogDebljina   !== 'sve') items = items.filter(m => m.debljina  == state.katalogDebljina);
+        if (state.katalogDebljina  !== 'sve') items = items.filter(m => m.debljina   == state.katalogDebljina);
         if (q) items = items.filter(m =>
             (m.naziv    || '').toLowerCase().includes(q) ||
             (m.sifra    || '').toLowerCase().includes(q) ||
@@ -179,15 +198,20 @@
     function renderKatalogCard(m) {
         const hasAbs = m.abs_08 != null || m.abs_2 != null;
 
-        // Zeile 1: Šifra · Struktura
+        // Zeile 1: Šifra · Struktura (lijevo) | Naziv (sredina, bold) | Marka (desno, sivo)
         const sifraStruktura = [m.sifra, m.struktura].filter(Boolean).map(esc).join(' · ');
 
-        // Zeile 2: Kategorija · Debljina · Format
-        const meta2 = [
-            m.kategorija ? esc(m.kategorija) : null,
-            m.debljina   ? `${m.debljina} mm` : null,
-            m.format     ? esc(m.format)      : null,
-        ].filter(Boolean).join(' · ');
+        // Zeile 2: Lieferant-Name · Katalog-Naziv · Debljina · Format
+        const lieferantName = m.dobavljac_id && dobavljacMap[m.dobavljac_id]
+            ? `<span class="mat-lieferant-tag">${esc(dobavljacMap[m.dobavljac_id])}</span>`
+            : null;
+        const meta2Parts = [
+            lieferantName,
+            m.katalog_naziv ? `<span>${esc(m.katalog_naziv)}</span>` : null,
+            m.debljina      ? `<span>${m.debljina} mm</span>`         : null,
+            m.format        ? `<span>${esc(m.format)}</span>`         : null,
+        ].filter(Boolean);
+        const meta2 = meta2Parts.join('<span class="mat-meta-sep"> · </span>');
 
         // Zeile 3: ABS-Werte
         const absLine = hasAbs ? [
@@ -201,10 +225,10 @@
                     <div class="mat-item-row1">
                         ${sifraStruktura ? `<span class="mat-item-sifra-str">${sifraStruktura}</span>` : ''}
                         <span class="mat-item-naziv">${esc(m.naziv)}</span>
-                        ${m.dobavljac ? `<span class="mat-dob-badge">${esc(m.dobavljac)}</span>` : ''}
+                        ${m.dobavljac ? `<span class="mat-marka-inline">${esc(m.dobavljac)}</span>` : ''}
                     </div>
                     ${meta2 ? `<div class="mat-item-row2">${meta2}</div>` : ''}
-                    ${hasAbs  ? `<div class="mat-item-abs">${absLine}</div>` : ''}
+                    ${hasAbs ? `<div class="mat-item-abs">${absLine}</div>` : ''}
                 </div>
                 <div class="mat-item-price-col">
                     ${m.cijena != null

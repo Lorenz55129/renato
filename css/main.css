@@ -4287,6 +4287,27 @@ body.overlay-open {
     gap: 4px 8px;
 }
 
+/* Marka (Hersteller) – inline rechts in Zeile 1 */
+.mat-marka-inline {
+    font-size: 11px;
+    color: #888;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: auto;
+    padding-left: 6px;
+}
+
+/* Lieferant-Name – farbig in Zeile 2 */
+.mat-lieferant-tag {
+    font-size: 0.8em;
+    color: var(--color-brown);
+    font-weight: 500;
+}
+
+.mat-meta-sep {
+    color: var(--color-border);
+}
+
 .mat-item-sifra-str {
     font-size: 11px;
     color: var(--color-text-muted);
