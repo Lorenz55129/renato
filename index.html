@@ -141,6 +141,12 @@
                         </button>
                     </li>
                     <li>
+                        <button type="button" class="menu-item" data-target="materijali">
+                            <span class="menu-item-label">Materijali</span>
+                            <span class="menu-item-arrow" aria-hidden="true">›</span>
+                        </button>
+                    </li>
+                    <li>
                         <button type="button" class="menu-item" data-target="edukacije">
                             <span class="menu-item-label">Edukacije</span>
                             <span class="menu-item-arrow" aria-hidden="true">›</span>
@@ -195,6 +201,17 @@
             </div>
             <div class="module-content" id="edukacije-content">
                 <!-- Sadržaj se generira iz js/schulungen.js -->
+            </div>
+        </section>
+
+        <!-- Materijali modul (dostupan iz "Više") -->
+        <section class="module hidden" id="module-materijali" data-module="materijali">
+            <header class="module-header module-header-nav">
+                <button class="btn-back" data-target="vise">← Više</button>
+                <h2>Materijali</h2>
+            </header>
+            <div class="module-content" id="materijali-content">
+                <!-- Sadržaj se generira iz js/materijali.js -->
             </div>
         </section>
 
@@ -298,5 +315,6 @@
     <script src="js/aufmass.js"></script>
     <script src="js/schulungen.js"></script>
     <script src="js/users.js"></script>
+    <script src="js/materijali.js"></script>
 </body>
 </html>

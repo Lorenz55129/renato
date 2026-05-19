@@ -3594,3 +3594,551 @@ body.overlay-open {
 .btn-danger:active {
     opacity: 0.85;
 }
+
+/* ----- Materijali modul ----- */
+
+/* Small button variant */
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    border-radius: var(--radius-sm);
+}
+
+/* Tabs (Katalog / Lista nabavke) */
+.mat-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--color-cream-dark);
+    border-radius: var(--radius-md);
+    padding: 4px;
+    margin-bottom: 16px;
+}
+
+.mat-tab {
+    flex: 1;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    transition: background 0.15s, color 0.15s;
+}
+
+.mat-tab.active {
+    background: var(--color-white);
+    color: var(--color-brown);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Toolbar (search + upload btn) */
+.mat-toolbar {
+    margin-bottom: 16px;
+}
+
+.mat-search-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.mat-search {
+    flex: 1;
+}
+
+.mat-upload-btn {
+    white-space: nowrap;
+    cursor: pointer;
+    padding: 10px 14px;
+    font-size: 0.875rem;
+    background: var(--color-cream-dark);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-brown);
+    font-weight: 500;
+}
+
+.mat-upload-btn:active {
+    opacity: 0.85;
+}
+
+/* Filter pills */
+.mat-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mat-filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.mat-filter-label {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    margin-right: 2px;
+}
+
+.mat-filter-btn {
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    border-radius: 20px;
+    border: 1px solid var(--color-border);
+    background: var(--color-white);
+    color: var(--color-text-muted);
+}
+
+.mat-filter-btn.active {
+    background: var(--color-brown);
+    color: var(--color-white);
+    border-color: var(--color-brown);
+}
+
+/* Upload status */
+.mat-upload-status {
+    margin-top: 8px;
+    font-size: 0.875rem;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--color-cream-dark);
+}
+
+.mat-upload-ok  { background: #f0fdf4; color: var(--color-success); }
+.mat-upload-err { background: #fef2f2; color: var(--color-danger); }
+
+/* Count label */
+.mat-count {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    margin-bottom: 8px;
+}
+
+/* Katalog list */
+.mat-katalog-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.mat-katalog-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    gap: 8px;
+}
+
+.mat-item-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.mat-item-naziv {
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: var(--color-text);
+    margin-bottom: 4px;
+}
+
+.mat-item-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.mat-sifra {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    background: var(--color-cream-dark);
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+.mat-dobavljac {
+    font-size: 0.75rem;
+    color: var(--color-brown-light);
+    font-weight: 500;
+}
+
+.mat-kategorija {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.mat-debljina {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.mat-item-cijena {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-brown);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.mat-cijena-unit {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--color-text-muted);
+}
+
+.mat-cijena-sm {
+    font-size: 0.75rem;
+    color: var(--color-brown);
+    font-weight: 500;
+}
+
+/* --- Lista nabavke --- */
+.mat-nabavka-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    gap: 10px;
+}
+
+.mat-status-pills {
+    display: flex;
+    gap: 6px;
+}
+
+.mat-status-pill {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: 1px solid var(--color-border);
+    background: var(--color-white);
+    color: var(--color-text-muted);
+}
+
+.mat-status-pill.active {
+    background: var(--color-brown);
+    color: var(--color-white);
+    border-color: var(--color-brown);
+}
+
+.mat-print-btn {
+    font-size: 0.85rem;
+}
+
+.mat-nabavka-group {
+    margin-bottom: 20px;
+}
+
+.mat-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 14px;
+    background: var(--color-brown);
+    color: var(--color-white);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.mat-group-naziv {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.mat-group-count {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.mat-nabavka-list {
+    list-style: none;
+    border: 1px solid var(--color-border);
+    border-top: none;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    overflow: hidden;
+}
+
+.mat-nabavka-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 14px;
+    background: var(--color-white);
+    border-bottom: 1px solid var(--color-border);
+    gap: 12px;
+}
+
+.mat-nabavka-item:last-child {
+    border-bottom: none;
+}
+
+.mat-nabavka-item.naruceno {
+    background: var(--color-cream);
+    opacity: 0.7;
+}
+
+.mat-nabavka-cb-label {
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.mat-nabavka-cb-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--color-brown);
+}
+
+.mat-nabavka-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.mat-nabavka-naziv {
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.mat-nabavka-sub {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 3px;
+}
+
+.mat-nabavka-narudzba {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
+.mat-nabavka-kolicina {
+    font-size: 0.8rem;
+    color: var(--color-brown);
+    font-weight: 500;
+}
+
+.mat-nabavka-napomena {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
+.mat-nabavka-cijena {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-brown);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* --- Modal styles --- */
+.mat-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 300;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+}
+
+.mat-modal {
+    background: var(--color-white);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.mat-modal-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-cream);
+}
+
+.mat-modal-tab {
+    flex: 1;
+    padding: 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    border-bottom: 2px solid transparent;
+}
+
+.mat-modal-tab.active {
+    color: var(--color-brown);
+    border-bottom-color: var(--color-brown);
+}
+
+#mat-modal-body {
+    overflow-y: auto;
+    padding: 16px;
+    flex: 1;
+}
+
+.mat-modal-search-row {
+    margin-bottom: 10px;
+}
+
+.mat-modal-search {
+    width: 100%;
+}
+
+.mat-modal-katalog-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.mat-modal-katalog-item {
+    padding: 12px;
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    active: background-color var(--color-cream);
+}
+
+.mat-modal-katalog-item:active {
+    background: var(--color-cream);
+}
+
+.mat-add-form {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mat-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.mat-modal-btns {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+/* --- Narudžba-Detail: Materijal section --- */
+.detail-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.detail-section-header .detail-section-title {
+    margin-bottom: 0;
+}
+
+.mat-pozicije-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.mat-pozicija-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    gap: 10px;
+}
+
+.mat-pozicija-item.naruceno {
+    opacity: 0.6;
+    background: var(--color-cream);
+}
+
+.mat-pozicija-item.naruceno .mat-pozicija-naziv {
+    text-decoration: line-through;
+}
+
+.mat-pozicija-cb-label {
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.mat-pozicija-cb-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--color-brown);
+}
+
+.mat-pozicija-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.mat-pozicija-naziv {
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.mat-pozicija-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 3px;
+}
+
+.mat-kolicina {
+    font-size: 0.8rem;
+    color: var(--color-brown);
+    font-weight: 500;
+}
+
+.mat-napomena-sm {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
+.mat-pozicija-actions {
+    flex-shrink: 0;
+}
+
+/* --- Print styles --- */
+@media print {
+    .app-header,
+    .bottom-nav,
+    .mat-nabavka-toolbar,
+    .mat-tabs,
+    .mat-toolbar {
+        display: none !important;
+    }
+
+    body {
+        padding: 0;
+        background: white;
+        font-size: 12pt;
+    }
+
+    .mat-nabavka-group {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .mat-group-header {
+        background: #333 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .mat-nabavka-item.naruceno {
+        opacity: 1;
+    }
+}

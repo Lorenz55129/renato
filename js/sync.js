@@ -67,6 +67,24 @@
                 await App.DB.saveAll(t, serverData[t]);
             }
 
+            // Katalog materijala – upload-only, ne ide kroz queue, sinkronizira se ovdje
+            try {
+                const katalog = await App.Api.apiCall('GET', '/materijali/katalog');
+                await App.DB.saveAll('materijali_katalog', katalog);
+                console.info('[Sync] Katalog: ' + katalog.length + ' stavki');
+            } catch (ke) {
+                console.warn('[Sync] Katalog sync preskočen:', ke.message);
+            }
+
+            // Pozicije materijala – direktni API pozivi, sinkroniziraju se kao read-only cache
+            try {
+                const positions = await App.Api.apiCall('GET', '/materijali/positions');
+                await App.DB.saveAll('narudzba_materijali', positions);
+                console.info('[Sync] Pozicije materijala: ' + positions.length);
+            } catch (pe) {
+                console.warn('[Sync] Pozicije sync preskočene:', pe.message);
+            }
+
             await App.Storage.initCache();
 
             lastSync = new Date().toISOString();

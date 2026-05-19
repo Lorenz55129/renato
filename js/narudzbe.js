@@ -424,6 +424,14 @@
                 <button type="button" class="btn btn-secondary btn-block" id="btn-aufmass">Nova skica</button>
             </section>
 
+            <section class="detail-section" id="section-materijal-pozicije">
+                <div class="detail-section-header">
+                    <h4 class="detail-section-title">Materijal <span class="detail-section-count" id="mat-pos-count"></span></h4>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-dodaj-materijal">+ Dodaj</button>
+                </div>
+                <div id="mat-pozicije-list"><p class="placeholder-hint">Učitavanje...</p></div>
+            </section>
+
             <section class="detail-section">
                 <h4 class="detail-section-title">Ponude <span class="detail-section-count">(${linkedPonude.length})</span></h4>
                 ${linkedPonude.length === 0
@@ -546,6 +554,117 @@
                     });
                 }
             });
+        }
+
+        // Materijal pozicije – učitaj asinkrono
+        const btnDodajMat = container.querySelector('#btn-dodaj-materijal');
+        if (btnDodajMat) {
+            btnDodajMat.addEventListener('click', () => handleDodajMaterijal(n.id, container));
+        }
+        loadMaterijaliPozicije(n.id, container);
+    }
+
+    // ----- Materijal pozicije -----
+
+    async function loadMaterijaliPozicije(narudzbaId, container) {
+        const listEl = container.querySelector('#mat-pozicije-list');
+        const countEl = container.querySelector('#mat-pos-count');
+        if (!listEl) return;
+
+        let positions = [];
+        try {
+            positions = await App.Api.apiCall('GET', '/materijali/positions?narudzba_id=' + encodeURIComponent(narudzbaId));
+        } catch (e) {
+            // Fallback: IndexedDB cache
+            const all = await App.DB.loadAll('narudzba_materijali');
+            positions = all.filter(p => p.narudzba_id === narudzbaId);
+        }
+
+        if (countEl) countEl.textContent = positions.length ? '(' + positions.length + ')' : '';
+
+        if (!positions.length) {
+            listEl.innerHTML = '<p class="placeholder-hint">Nema materijala za ovu narudžbu.</p>';
+            return;
+        }
+
+        listEl.innerHTML = `
+            <ul class="mat-pozicije-list">
+                ${positions.map(p => `
+                    <li class="mat-pozicija-item ${p.narudzeno ? 'naruceno' : ''}">
+                        <label class="mat-pozicija-cb-label" title="Naručeno">
+                            <input type="checkbox" class="mat-pos-cb" data-id="${escapeHtml(p.id)}"
+                                   ${p.narudzeno ? 'checked' : ''}>
+                        </label>
+                        <div class="mat-pozicija-info">
+                            <div class="mat-pozicija-naziv">${escapeHtml(p.naziv)}</div>
+                            <div class="mat-pozicija-meta">
+                                ${p.dobavljac ? `<span class="mat-dobavljac">${escapeHtml(p.dobavljac)}</span>` : ''}
+                                <span class="mat-kolicina">${escapeHtml(String(p.kolicina))} ${escapeHtml(p.jedinica || 'kom')}</span>
+                                ${p.cijena != null ? `<span class="mat-cijena-sm">${parseFloat(p.cijena).toFixed(2).replace('.', ',')} KM/m²</span>` : ''}
+                                ${p.napomena ? `<span class="mat-napomena-sm">${escapeHtml(p.napomena)}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="mat-pozicija-actions">
+                            <button type="button" class="btn btn-ghost btn-sm mat-pos-del"
+                                    data-id="${escapeHtml(p.id)}" title="Obriši">✕</button>
+                        </div>
+                    </li>
+                `).join('')}
+            </ul>
+        `;
+
+        // Naručeno checkbox
+        listEl.querySelectorAll('.mat-pos-cb').forEach(cb => {
+            cb.addEventListener('change', async () => {
+                try {
+                    const pos = positions.find(p => p.id === cb.dataset.id);
+                    if (!pos) return;
+                    await App.Api.apiCall('PUT', '/materijali/positions/' + cb.dataset.id, {
+                        ...pos, narudzeno: cb.checked ? 1 : 0
+                    });
+                    // Refresh section
+                    loadMaterijaliPozicije(narudzbaId, container);
+                } catch (e) {
+                    cb.checked = !cb.checked;
+                    alert('Greška: ' + e.message);
+                }
+            });
+        });
+
+        // Obriši
+        listEl.querySelectorAll('.mat-pos-del').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('Stvarno obrisati ovu poziciju?')) return;
+                try {
+                    await App.Api.apiCall('DELETE', '/materijali/positions/' + btn.dataset.id);
+                    loadMaterijaliPozicije(narudzbaId, container);
+                } catch (e) {
+                    alert('Greška pri brisanju: ' + e.message);
+                }
+            });
+        });
+    }
+
+    async function handleDodajMaterijal(narudzbaId, container) {
+        if (!window.App.Materijali) {
+            alert('Materijali modul nije učitan.');
+            return;
+        }
+        const result = await window.App.Materijali.openAddModal(narudzbaId);
+        if (!result) return;
+
+        const id = 'mat-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+        try {
+            await App.Api.apiCall('POST', '/materijali/positions', {
+                id,
+                narudzba_id: narudzbaId,
+                ...result,
+                narudzeno: 0,
+                created_by: App.Auth.currentUser()?.id || null
+            });
+            loadMaterijaliPozicije(narudzbaId, container);
+        } catch (e) {
+            alert('Greška pri dodavanju: ' + e.message);
         }
     }
 

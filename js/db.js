@@ -20,6 +20,17 @@
         sync_queue:  '++id, table, record_id, action, timestamp, status',
         meta:        'key'
     });
+    db.version(3).stores({
+        kupci:                'id',
+        narudzbe:             'id',
+        ponude:               'id',
+        termini:              'id',
+        edukacije:            'id',
+        sync_queue:           '++id, table, record_id, action, timestamp, status',
+        meta:                 'key',
+        materijali_katalog:   'id, dobavljac, kategorija',
+        narudzba_materijali:  'id, narudzba_id, narudzeno'
+    });
 
     async function loadAll(table) {
         return await db.table(table).toArray();
@@ -52,7 +63,9 @@
             db.termini.clear(),
             db.edukacije.clear(),
             db.sync_queue.clear(),
-            db.meta.clear()
+            db.meta.clear(),
+            db.materijali_katalog.clear(),
+            db.narudzba_materijali.clear()
         ]);
     }
 
