@@ -4552,3 +4552,162 @@ body.overlay-open {
         opacity: 1;
     }
 }
+
+/* ============================================================
+   Phase F-2 – Upload-Modal Stepper & Column Mapping
+   ============================================================ */
+
+/* Wider modal for mapping step */
+.um-modal {
+    max-width: 560px;
+    width: 95vw;
+}
+
+/* Stepper header */
+.um-stepper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+}
+
+.um-step {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.82em;
+    color: #aaa;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.um-step.active {
+    color: var(--color-primary);
+    font-weight: 700;
+}
+
+.um-step.done {
+    color: var(--color-primary);
+    opacity: 0.55;
+}
+
+.um-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #e0e0e0;
+    font-size: 0.78em;
+    font-weight: 700;
+    color: #666;
+    flex-shrink: 0;
+}
+
+.um-step.active .um-step-num {
+    background: var(--color-primary);
+    color: white;
+}
+
+.um-step.done .um-step-num {
+    background: var(--color-primary);
+    color: white;
+    opacity: 0.7;
+}
+
+.um-step-sep {
+    color: #ccc;
+    font-size: 1em;
+    flex-shrink: 0;
+}
+
+/* Column mapping container */
+.um-map-container {
+    padding: 12px 16px 16px;
+}
+
+.um-map-hint {
+    font-size: 0.82em;
+    color: #888;
+    margin: 0 0 10px;
+}
+
+.um-map-grid {
+    max-height: 52vh;
+    overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 2px 10px;
+    margin-bottom: 10px;
+}
+
+.um-map-row {
+    padding: 8px 0;
+    border-bottom: 1px solid #f2f2f2;
+}
+
+.um-map-row:last-child {
+    border-bottom: none;
+}
+
+.um-col-header {
+    font-weight: 600;
+    font-size: 0.85em;
+    color: var(--color-text);
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.um-col-sample {
+    font-size: 0.78em;
+    color: #aaa;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 14px;
+}
+
+.um-col-select {
+    width: 100%;
+    font-size: 0.85em !important;
+    padding: 5px 8px !important;
+    height: auto !important;
+}
+
+/* Confirmation summary */
+.um-confirm-summary {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    margin-bottom: 12px;
+}
+
+.um-confirm-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 5px;
+    font-size: 0.875em;
+    line-height: 1.4;
+}
+
+.um-confirm-row:last-child {
+    margin-bottom: 0;
+}
+
+.um-confirm-row span {
+    color: #888;
+    min-width: 80px;
+    flex-shrink: 0;
+}
+
+.um-confirm-row strong {
+    color: var(--color-text);
+    word-break: break-word;
+}
